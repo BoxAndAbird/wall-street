@@ -20,6 +20,12 @@ Chrome or Edge can open the page in its own window, with no tabs or address bar:
 
 Point a desktop shortcut at that (icon: `icon.ico`) and it behaves like a local app. Data is kept per address, so the first time you open it this way, Restore a Backup taken from wherever you were using it before.
 
+## Same numbers on every device
+
+Turn on **Sync** from the History page. It gives you a private code. Enter that code on each other device (History, then "I have a code") and they all share one ledger. Changes go up within a second and come down whenever the app is opened or brought back to the front; "Sync now" forces it.
+
+The ledger is stored under that code in a small cloud database (Supabase). Nothing can read it without the code, so treat the code like a password. It is kept outside the ledger, so backup files never contain it. If two devices change things at the same moment, the second one is told to redo its last change.
+
 ## Where the data lives
 
 Everything is stored in the browser's local storage for the address you opened. That means:

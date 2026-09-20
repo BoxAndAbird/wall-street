@@ -72,9 +72,77 @@ function hydrate(d) {
   out.upcoming.forEach(u => { if (u.kind !== 'in') u.kind = 'out'; if (!u.done || typeof u.done !== 'object') u.done = null; });
   return out;
 }
-function save() {
+function save(o) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); }
   catch (e) { console.error(e); toast('Could not save. Is storage blocked?'); }
+  if (sync.code && !(o && o.local)) schedulePush();
+}
+
+/* ======================================================================
+   sync across devices (optional). The whole ledger is kept in a small
+   cloud store under a private code; every device that has the code
+   sees the same numbers. The code lives outside the ledger so a backup
+   file never contains it.
+   ====================================================================== */
+const SYNC = { url: 'https://gbivjaggzpmccfxoqrnu.supabase.co', key: 'sb_publishable_WF36AphLIFeQrk4kXcCfgg_WZ-SDkRF' };
+const SYNC_KEY = 'wallstreet.sync';
+let sync = loadSync(), pushTimer = null, lastPullAt = 0;
+
+function loadSync() {
+  const base = { code: null, version: 0, last: null, status: 'idle' };
+  try { return Object.assign(base, JSON.parse(localStorage.getItem(SYNC_KEY) || 'null') || {}, { status: 'idle' }); }
+  catch (e) { return base; }
+}
+function saveSync() { try { localStorage.setItem(SYNC_KEY, JSON.stringify({ code: sync.code, version: sync.version, last: sync.last })); } catch (e) { console.error(e); } }
+const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; /* no 0/O, 1/I/L: easy to read off a screen and type on a phone */
+function newCode() {
+  const a = new Uint8Array(24); crypto.getRandomValues(a);
+  return prettyCode(Array.from(a, b => CODE_ALPHABET[b % CODE_ALPHABET.length]).join(''));
+}
+const normCode = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const prettyCode = s => (normCode(s).match(/.{1,4}/g) || []).join('-');
+async function rpc(fn, args) {
+  const res = await fetch(SYNC.url + '/rest/v1/rpc/' + fn, { method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': SYNC.key }, body: JSON.stringify(args) });
+  if (!res.ok) throw new Error('sync ' + res.status + ' ' + (await res.text()).slice(0, 160));
+  return res.json();
+}
+function setSyncStatus(st) { sync.status = st; renderNav(); }
+/* the cloud copy wins: replace this device's ledger with it */
+function adoptRemote(r, msg) {
+  S = hydrate(r.data); sync.version = r.version; sync.last = nowISO(); sync.status = 'idle'; saveSync();
+  save({ local: true }); shownNet = null; render();
+  if (msg) toast(msg);
+}
+async function syncPull(o) {
+  o = o || {};
+  if (!sync.code || !SYNC.url || !navigator.onLine) return;
+  if (!o.force && Date.now() - lastPullAt < 15000) return;
+  lastPullAt = Date.now();
+  setSyncStatus('syncing');
+  try {
+    const r = await rpc('ws_get', { code: normCode(sync.code) });
+    if (r && r.version !== sync.version) adoptRemote(r, o.quiet ? '' : 'Updated from another device');
+    else if (!r) { await syncPush(); return; }   /* nothing in the cloud yet: this device seeds it */
+    sync.last = nowISO(); saveSync(); setSyncStatus('idle');
+  } catch (e) { console.warn(e); setSyncStatus('error'); }
+}
+function schedulePush() { clearTimeout(pushTimer); pushTimer = setTimeout(syncPush, 800); }
+async function syncPush() {
+  if (!sync.code || !SYNC.url) return;
+  if (!navigator.onLine) { setSyncStatus('error'); return; }
+  setSyncStatus('syncing');
+  try {
+    const r = await rpc('ws_put', { code: normCode(sync.code), payload: S, expected: sync.version || null });
+    if (r && r.ok) { sync.version = r.version; sync.last = nowISO(); saveSync(); setSyncStatus('idle'); }
+    else if (r && r.conflict) adoptRemote(r, 'Another device changed things first. Reloaded, so redo your last change.');
+    else setSyncStatus('error');
+  } catch (e) { console.warn(e); setSyncStatus('error'); }
+}
+function syncLine() {
+  if (!sync.code) return 'Stored in this browser only';
+  if (sync.status === 'syncing') return 'Syncing';
+  if (sync.status === 'error') return 'Sync paused ' + DOT + ' cannot reach the cloud';
+  return 'Synced across devices' + (sync.last ? ' ' + DOT + ' ' + fmtTime(sync.last) : '');
 }
 
 /* ======================================================================
@@ -291,7 +359,7 @@ function renderNav() {
   const counts = { accounts: S.accounts.length, goals: S.goals.length, bills: S.bills.length, plan: S.buckets.length, upcoming: pending().length };
   $('#nav').innerHTML = VIEWS.map(v => '<a href="#' + v.id + '" class="nav-item' + (v.id === view ? ' on' : '') + '"><span>' + v.label + '</span>' + (counts[v.id] ? '<span class="nav-n num">' + counts[v.id] + '</span>' : '') + '</a>').join('');
   const lb = S.settings.lastBackup;
-  $('#sideStatus').innerHTML = 'Stored in this browser<br>' + (lb ? 'Backed up ' + fmtDate(lb, { month: 'short', day: 'numeric' }) : 'Never backed up');
+  $('#sideStatus').innerHTML = esc(syncLine()) + '<br>' + (lb ? 'Backed up ' + fmtDate(lb, { month: 'short', day: 'numeric' }) : 'Never backed up');
 }
 function afterRender() {
   const hero = $('[data-count]');
@@ -641,9 +709,15 @@ function vHistory() {
   </section>
   <section class="panel">
     <div class="panel-head"><span class="label">Data</span></div>
+    ${SYNC.url ? `<div class="data-row"><div><div class="strong">Sync across devices</div><div class="muted small">${sync.code
+      ? `On. Your code is <b class="num">${prettyCode(sync.code)}</b>. Enter it on another device to see the same numbers there.${sync.last ? ' Last synced ' + fmtDate(sync.last, { month: 'short', day: 'numeric' }) + ' ' + fmtTime(sync.last) + '.' : ''}${sync.status === 'error' ? ' <span class="warn">Cannot reach the cloud right now.</span>' : ''}`
+      : 'Keep the same numbers on your computer, laptop and phone. Turn it on here, then enter the code it gives you on each other device.'}</div></div>
+      <div class="row acts">${sync.code
+        ? `<button class="btn" data-action="sync-copy">Copy code</button><button class="btn" data-action="sync-now">Sync now</button><button class="btn btn-ghost" data-action="sync-off">Turn off</button>`
+        : `<button class="btn btn-primary" data-action="sync-on">Turn on sync</button><button class="btn" data-action="sync-join">I have a code</button>`}</div></div>` : ''}
     <div class="data-row"><div><div class="strong">Backup</div><div class="muted small">Download everything as one JSON file. This app keeps its data in this browser only, so keep a copy somewhere safe.</div></div><button class="btn" data-action="export">Download backup</button></div>
     <div class="data-row"><div><div class="strong">Restore</div><div class="muted small">Load a backup file. Replaces what is here.</div></div><button class="btn" data-action="import">Choose file</button></div>
-    <div class="data-row"><div><div class="strong">Start over</div><div class="muted small">Wipe all accounts, goals, bills, upcoming, plan and history.</div></div><button class="btn btn-danger" data-action="reset">Erase everything</button></div>
+    <div class="data-row"><div><div class="strong">Start over</div><div class="muted small">Wipe all accounts, goals, bills, upcoming, plan and history${sync.code ? ', here and on every synced device' : ''}.</div></div><button class="btn btn-danger" data-action="reset">Erase everything</button></div>
   </section>`;
 }
 
@@ -1085,6 +1159,48 @@ const actions = {
     commit(u.name + ' back to pending');
   },
 
+  /* sync */
+  async 'sync-on'() {
+    if (!SYNC.url) return;
+    if (sync.code) return;
+    const code = newCode();
+    sync.code = code; sync.version = 0; saveSync();
+    await syncPush();
+    if (sync.status === 'error') { sync.code = null; sync.version = 0; saveSync(); renderNav(); toast('Could not reach the cloud. Try again in a moment.'); return; }
+    render();
+    await confirmDlg({ title: 'Sync is on', body: 'Your code:<br><b class="num" style="font-size:18px">' + prettyCode(code) + '</b><br><br>On each other device, open History, tap "I have a code" and enter it. Keep it private: anyone who has the code can see and change these numbers.', ok: 'Got it' });
+  },
+  async 'sync-join'() {
+    if (!SYNC.url) return;
+    const r = await form({ title: 'Enter your sync code', intro: 'It is shown on the History page of the device you turned sync on with.', fields: [
+      { key: 'code', label: 'Code', placeholder: 'XXXX-XXXX-XXXX-XXXX-XXXX-XXXX', required: true },
+    ], submit: 'Connect' });
+    if (!r.ok) return;
+    const code = normCode(r.v.code);
+    if (code.length < 20) { toast('That code looks too short'); return; }
+    let remote;
+    try { remote = await rpc('ws_get', { code }); } catch (e) { console.warn(e); toast('Could not reach the cloud. Try again in a moment.'); return; }
+    if (!remote) { toast('No ledger uses that code. Check it and try again.'); return; }
+    const d = remote.data || {};
+    if (S.accounts.length && !(await confirmDlg({ title: 'Replace what is on this device?', body: 'The synced ledger has ' + (d.accounts || []).length + ' accounts and last changed ' + fmtDate(remote.updated_at) + '. It replaces the numbers on this device. Download a backup first if you want to keep this copy.', ok: 'Replace and sync', danger: true }))) return;
+    sync.code = prettyCode(code);
+    adoptRemote(remote, 'Connected. Same numbers everywhere now.');
+  },
+  async 'sync-now'() {
+    await syncPull({ force: true });
+    if (sync.status !== 'error') await syncPush();
+    render(); toast(sync.status === 'error' ? 'Could not reach the cloud' : 'Up to date');
+  },
+  async 'sync-copy'() {
+    try { await navigator.clipboard.writeText(prettyCode(sync.code)); toast('Code copied'); }
+    catch (e) { toast('Could not copy here. The code is shown on this page.'); }
+  },
+  async 'sync-off'() {
+    const ok = await confirmDlg({ title: 'Turn off sync on this device?', body: 'This device keeps its numbers but stops sharing them. The cloud copy and your other devices are not affected.', ok: 'Turn off' });
+    if (!ok) return;
+    sync = { code: null, version: 0, last: null, status: 'idle' }; saveSync(); render(); toast('Sync is off on this device');
+  },
+
   /* data */
   export() {
     S.settings.lastBackup = nowISO(); save();
@@ -1206,9 +1322,14 @@ function init() {
   window.addEventListener('resize', debounce(drawChart, 120));
   /* another tab of the app saved: pick up its data instead of overwriting it later */
   window.addEventListener('storage', e => { if (e.key === STORE_KEY && !$('#modalRoot').classList.contains('open')) { S = load(); render(); } });
+  /* keep in step with the other devices: on open, when the tab comes back, and when the connection returns */
+  window.addEventListener('online', () => syncPull({ force: true, quiet: true }));
+  window.addEventListener('focus', () => syncPull({}));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) syncPull({}); });
   /* today's point on the chart always reflects the current numbers, including bills that came due since the last change */
-  if (S.accounts.length) { snapshot(); save(); }
+  if (S.accounts.length) { snapshot(); save({ local: true }); }
   render();
+  if (sync.code) syncPull({ force: true, quiet: true });
 }
 init();
 })();
