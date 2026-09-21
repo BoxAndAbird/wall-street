@@ -843,3 +843,45 @@ input[type="date"].inp { min-width: 0; }
 [data-theme="casino"] [data-view="plan"] .page-head h1::before, [data-theme="casino"] [data-view="history"] .page-head h1::before { background-image: url(art/casino-chip.png); }
 [data-theme="casino"] .goal.done .row:first-child::after { content: ""; display: inline-block; width: 26px; height: 26px; margin-left: 8px; background: url(art/casino-gem.png) center / contain no-repeat; vertical-align: middle; }
 [data-theme="casino"] .panel-head { background: linear-gradient(90deg, rgba(212,175,55,.10), transparent 60%); }
+
+/* arcade art: generated icons (art/arcade-*.png) */
+[data-theme="arcade"] .brand-mark { width: 26px; height: 26px; background: url(art/arcade-badge.png) center / contain no-repeat; border: 0; border-radius: 0; box-shadow: none; transform: none; }
+[data-theme="arcade"] .hero-top .label::before { content: ""; display: inline-block; width: 26px; height: 26px; margin: -7px 8px -7px 0; background: url(art/arcade-coin.png) center / contain no-repeat; vertical-align: middle; }
+[data-theme="arcade"] .meter { position: relative; }
+[data-theme="arcade"] .meter .token { display: block; position: absolute; top: 50%; width: 34px; height: 34px; margin: -17px 0 0 -17px; background: url(art/arcade-gem.png) center / contain no-repeat; border: 0; box-shadow: none; filter: drop-shadow(0 3px 3px rgba(0,0,0,.45)) drop-shadow(0 0 8px rgba(124,242,255,.6)); transition: left .6s cubic-bezier(.2,.7,.2,1); }
+[data-theme="arcade"] .meter .token::before { content: none; }
+[data-theme="arcade"] .meter.done .token { background-image: url(art/arcade-crown.png); }
+[data-theme="arcade"] .page-head h1::before { content: ""; display: inline-block; width: 38px; height: 38px; margin: -8px 10px -8px 0; vertical-align: middle; background: center / contain no-repeat; }
+[data-theme="arcade"] [data-view="accounts"] .page-head h1::before, [data-theme="arcade"] [data-view="bills"] .page-head h1::before { background-image: url(art/arcade-coin.png); }
+[data-theme="arcade"] [data-view="goals"] .page-head h1::before { background-image: url(art/arcade-crown.png); }
+[data-theme="arcade"] [data-view="upcoming"] .page-head h1::before { background-image: url(art/arcade-gem.png); }
+[data-theme="arcade"] [data-view="plan"] .page-head h1::before, [data-theme="arcade"] [data-view="history"] .page-head h1::before { background-image: url(art/arcade-badge.png); }
+[data-theme="arcade"] .goal.done .row:first-child::after { content: ""; display: inline-block; width: 26px; height: 26px; margin-left: 8px; background: url(art/arcade-crown.png) center / contain no-repeat; vertical-align: middle; }
+
+/* comic art: generated icons (art/comic-*.png) */
+[data-theme="comic"] .brand-mark { width: 28px; height: 28px; background: url(art/comic-burst.png) center / contain no-repeat; border: 0; border-radius: 0; box-shadow: none; transform: none; }
+[data-theme="comic"] .hero-top .label::before { content: ""; display: inline-block; width: 26px; height: 26px; margin: -7px 8px -7px 0; background: url(art/comic-cash.png) center / contain no-repeat; vertical-align: middle; }
+[data-theme="comic"] .meter { position: relative; }
+[data-theme="comic"] .meter .token { display: block; position: absolute; top: 50%; width: 36px; height: 36px; margin: -18px 0 0 -18px; background: url(art/comic-star.png) center / contain no-repeat; border: 0; box-shadow: none; filter: drop-shadow(0 3px 3px rgba(0,0,0,.45)); transition: left .6s cubic-bezier(.2,.7,.2,1); }
+[data-theme="comic"] .meter .token::before { content: none; }
+[data-theme="comic"] .meter.done .token { background-image: url(art/comic-trophy.png); }
+[data-theme="comic"] .page-head h1::before { content: ""; display: inline-block; width: 38px; height: 38px; margin: -8px 10px -8px 0; vertical-align: middle; background: center / contain no-repeat; }
+[data-theme="comic"] [data-view="accounts"] .page-head h1::before, [data-theme="comic"] [data-view="bills"] .page-head h1::before { background-image: url(art/comic-cash.png); }
+[data-theme="comic"] [data-view="goals"] .page-head h1::before { background-image: url(art/comic-trophy.png); }
+[data-theme="comic"] [data-view="upcoming"] .page-head h1::before { background-image: url(art/comic-star.png); }
+[data-theme="comic"] [data-view="plan"] .page-head h1::before, [data-theme="comic"] [data-view="history"] .page-head h1::before { background-image: url(art/comic-burst.png); }
+[data-theme="comic"] .goal.done .row:first-child::after { content: ""; display: inline-block; width: 26px; height: 26px; margin-left: 8px; background: url(art/comic-trophy.png) center / contain no-repeat; vertical-align: middle; }
+
+/* passbook art: generated icons (art/passbook-*.png) */
+[data-theme="passbook"] .brand-mark { width: 24px; height: 24px; background: url(art/passbook-book.png) center / contain no-repeat; border: 0; border-radius: 0; box-shadow: none; transform: none; }
+[data-theme="passbook"] .hero-top .label::before { content: ""; display: inline-block; width: 26px; height: 26px; margin: -7px 8px -7px 0; background: url(art/passbook-notes.png) center / contain no-repeat; vertical-align: middle; }
+[data-theme="passbook"] .meter { position: relative; }
+[data-theme="passbook"] .meter .token { display: block; position: absolute; top: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; background: url(art/passbook-coin.png) center / contain no-repeat; border: 0; box-shadow: none; filter: drop-shadow(0 3px 3px rgba(0,0,0,.45)); transition: left .6s cubic-bezier(.2,.7,.2,1); }
+[data-theme="passbook"] .meter .token::before { content: none; }
+[data-theme="passbook"] .meter.done .token { background-image: url(art/passbook-nib.png); }
+[data-theme="passbook"] .page-head h1::before { content: ""; display: inline-block; width: 38px; height: 38px; margin: -8px 10px -8px 0; vertical-align: middle; background: center / contain no-repeat; }
+[data-theme="passbook"] [data-view="accounts"] .page-head h1::before, [data-theme="passbook"] [data-view="bills"] .page-head h1::before { background-image: url(art/passbook-notes.png); }
+[data-theme="passbook"] [data-view="goals"] .page-head h1::before { background-image: url(art/passbook-nib.png); }
+[data-theme="passbook"] [data-view="upcoming"] .page-head h1::before { background-image: url(art/passbook-coin.png); }
+[data-theme="passbook"] [data-view="plan"] .page-head h1::before, [data-theme="passbook"] [data-view="history"] .page-head h1::before { background-image: url(art/passbook-book.png); }
+[data-theme="passbook"] .goal.done .row:first-child::after { content: ""; display: inline-block; width: 26px; height: 26px; margin-left: 8px; background: url(art/passbook-nib.png) center / contain no-repeat; vertical-align: middle; }
