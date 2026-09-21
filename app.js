@@ -39,14 +39,14 @@ const VIEWS = [
 ];
 /* looks. Each is a stylesheet block keyed on data-theme, plus a few flavoured labels; functions never change. */
 const THEME_INFO = {
-  dark:     { name: 'Dark ledger',  desc: 'The original. Quiet, purple, monospace.',                 color: '#0e0e12', sw: ['#0e0e12', '#a88cf6', '#63c78d'] },
-  board:    { name: 'Board',        desc: 'Deed cards on green felt. Pass GO, collect.',             color: '#0f5f3f', sw: ['#0f5f3f', '#fbf6ea', '#d7263d'] },
-  arcade:   { name: 'Arcade',       desc: 'Neon HUD. Brackets, glow, XP bars, your level.',         color: '#07080f', sw: ['#07080f', '#b388ff', '#7cf2ff'] },
+  dark:     { name: 'Dark ledger',  desc: 'The original. Quiet, purple, monospace.',                 color: '#0e0e12', sw: ['#0e0e12', '#a88cf6', '#63c78d'], emblem: 'art/emblem-dark.png' },
+  board:    { name: 'Board',        desc: 'Deed cards on green felt. Pass GO, collect.',             color: '#0f5f3f', sw: ['#0f5f3f', '#fbf6ea', '#d7263d'], emblem: 'art/emblem-board.png' },
+  arcade:   { name: 'Arcade',       desc: 'Neon HUD. Brackets, glow, XP bars, your level.',         color: '#07080f', sw: ['#07080f', '#b388ff', '#7cf2ff'], emblem: 'art/emblem-arcade.png' },
   tycoon:   { name: 'Tycoon',       desc: 'Glossy board-game HUD. Ribbons, gold coins, big green buttons.', color: '#1f8fe0', sw: ['#1f8fe0', '#ffc531', '#ff3d3d'], emblem: 'art/tycoon-shield.png' },
-  comic:    { name: 'Comic Pop',    desc: 'Halftone, thick outlines, big shadows. Ka-ching.',       color: '#fff3c4', sw: ['#fff3c4', '#111111', '#ff3b6b'] },
-  casino:   { name: 'Casino Night', desc: 'Black and gold, poker-chip tags, velvet glow.',          color: '#0b0b0d', sw: ['#0b0b0d', '#d4af37', '#3fd68c'] },
-  passbook: { name: 'Passbook',     desc: 'Kraft paper, navy ink, typewriter numbers, stamps.',     color: '#e9dfcc', sw: ['#e9dfcc', '#1e2a44', '#b3342e'] },
-  light:    { name: 'Paper',        desc: 'The original, in daylight.',                             color: '#f2f1f6', sw: ['#f2f1f6', '#6b4fd8', '#1f8a4c'] },
+  comic:    { name: 'Comic Pop',    desc: 'Halftone, thick outlines, big shadows. Ka-ching.',       color: '#fff3c4', sw: ['#fff3c4', '#111111', '#ff3b6b'], emblem: 'art/emblem-comic.png' },
+  casino:   { name: 'Casino Night', desc: 'Black and gold, poker-chip tags, velvet glow.',          color: '#0b0b0d', sw: ['#0b0b0d', '#d4af37', '#3fd68c'], emblem: 'art/emblem-casino.png' },
+  passbook: { name: 'Passbook',     desc: 'Kraft paper, navy ink, typewriter numbers, stamps.',     color: '#e9dfcc', sw: ['#e9dfcc', '#1e2a44', '#b3342e'], emblem: 'art/emblem-passbook.png' },
+  light:    { name: 'Paper',        desc: 'The original, in daylight.',                             color: '#f2f1f6', sw: ['#f2f1f6', '#6b4fd8', '#1f8a4c'], emblem: 'art/emblem-light.png' },
 };
 const THEMES = Object.keys(THEME_INFO);
 const WORDS = {
