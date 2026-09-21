@@ -722,11 +722,14 @@ function vUpcoming() {
       <div class="acts"><button class="btn btn-sm btn-ghost" data-action="undo-upcoming" data-id="${u.id}">Undo</button><button class="btn btn-sm btn-ghost" data-action="edit-upcoming" data-id="${u.id}">Edit</button></div>
     </div>`;
   };
+  const bills = billsLeft(), afterAll = T.N + E.inn - E.out - bills;
   return head + `<div class="summary-row">
       <div class="stat"><div class="label">Coming in</div><div class="num big${E.inn ? ' pos' : ''}">${E.inn ? '+' : ''}${money(E.inn, { cents: false })}</div></div>
       <div class="stat"><div class="label">Going out</div><div class="num big${E.out ? ' neg' : ''}">${E.out ? MINUS : ''}${money(E.out, { cents: false })}</div></div>
-      <div class="stat"><div class="label">Net</div><div class="num big">${money(E.net, { cents: false, sign: true })}</div></div>
-      <div class="stat"><div class="label">Net worth after</div><div class="num big">${money(T.N + E.net, { cents: false })}</div></div>
+      <div class="stat"><div class="label">${word('Bills left')} this month</div><div class="num big${bills ? ' neg' : ''}">${bills ? MINUS : ''}${money(bills, { cents: false })}</div></div>
+      <div class="stat"><div class="label">Net of one-time items</div><div class="num big">${money(E.net, { cents: false, sign: true })}</div></div>
+      <div class="stat"><div class="label">${word('Net worth')} now</div><div class="num big">${money(T.N, { cents: false })}</div></div>
+      <div class="stat"><div class="label">After everything pending</div><div class="num big${afterAll < T.N ? ' neg' : afterAll > T.N ? ' pos' : ''}">${money(afterAll, { cents: false })}</div></div>
     </div>
   <section class="panel"><div class="panel-head"><span class="label">Pending</span><span class="muted small">${open.length} item${open.length === 1 ? '' : 's'}</span></div>
     ${open.length ? open.map(row).join('') : `<p class="empty">Everything here is done.</p>`}
