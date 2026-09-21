@@ -934,12 +934,35 @@ function confirmDlg(o) {
     openModal(`<div class="mform"><h3>${esc(o.title)}</h3><p class="muted">${o.body}</p><div class="mactions"><span class="grow"></span><button class="btn" data-close>Cancel</button><button class="btn ${o.danger ? 'btn-danger' : 'btn-primary'}" data-ok>${esc(o.ok || 'Confirm')}</button></div></div>`);
   }).then(r => !!(r && r.ok));
 }
-function toast(msg) {
+function toast(msg, onTap) {
   const el = document.createElement('div');
-  el.className = 'toast'; el.textContent = msg;
+  el.className = 'toast' + (onTap ? ' tap' : ''); el.textContent = msg;
+  if (onTap) el.addEventListener('click', () => { el.remove(); onTap(); });
   $('#toastRoot').appendChild(el);
   requestAnimationFrame(() => el.classList.add('in'));
-  setTimeout(() => { el.classList.remove('in'); setTimeout(() => el.remove(), 250); }, 2600);
+  setTimeout(() => { el.classList.remove('in'); setTimeout(() => el.remove(), 250); }, onTap ? 8000 : 2600);
+}
+
+/* updates: the hosted app is cached for a few minutes, so look for a newer build and pull it in.
+   The running version is read off this script's own URL (app.js?v=N). */
+const APP_VER = (() => { const m = ((document.currentScript && document.currentScript.src) || '').match(/[?&]v=(\d+)/); return m ? +m[1] : 0; })();
+let lastUpdateCheck = 0;
+async function checkUpdate(o) {
+  o = o || {};
+  if (!APP_VER || location.protocol === 'file:' || !navigator.onLine) return;
+  if (!o.force && Date.now() - lastUpdateCheck < 60000) return;
+  lastUpdateCheck = Date.now();
+  try {
+    const dir = location.pathname.replace(/[^/]*$/, '');
+    const html = await (await fetch(dir + 'index.html', { cache: 'no-store' })).text();
+    const m = html.match(/app\.js\?v=(\d+)/);
+    if (!m || +m[1] <= APP_VER) return;
+    const next = m[1];
+    const go = () => { try { sessionStorage.setItem('ws.upd', next); } catch (e) {} location.replace(location.pathname + '?u=' + next + location.hash); };
+    let tried = null; try { tried = sessionStorage.getItem('ws.upd'); } catch (e) {}
+    if (o.auto && tried !== next && !$('#modalRoot').classList.contains('open')) { go(); return; }
+    toast('Update ready. Tap here to refresh.', go);
+  } catch (e) { /* offline or blocked: never mind */ }
 }
 
 /* ======================================================================
@@ -1418,11 +1441,12 @@ function init() {
   /* keep in step with the other devices: on open, when the tab comes back, and when the connection returns */
   window.addEventListener('online', () => syncPull({ force: true, quiet: true }));
   window.addEventListener('focus', () => syncPull({}));
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) syncPull({}); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { syncPull({}); checkUpdate({}); } });
   /* today's point on the chart always reflects the current numbers, including bills that came due since the last change */
   if (S.accounts.length) { snapshot(); save({ local: true }); dailyCopy(); }
   render();
   if (sync.code) syncPull({ force: true, quiet: true });
+  checkUpdate({ auto: true, force: true });
 }
 init();
 })();

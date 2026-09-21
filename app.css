@@ -413,7 +413,7 @@ input[type="date"].inp { min-width: 0; }
 
 /* controls */
 [data-theme="board"] .btn { border-radius: 999px; border: 2px solid var(--line-2); background: #fff; color: var(--fg); font-family: "Fredoka", var(--font); font-weight: 600; letter-spacing: .01em; box-shadow: 0 3px 0 var(--line-2); }
-[data-theme="board"] .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--line-2); filter: none; }
+[data-theme="board"] .btn:active { box-shadow: 0 1px 0 var(--line-2); filter: none; }
 [data-theme="board"] .btn-primary { background: var(--accent); color: #fff; }
 [data-theme="board"] .btn-ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--fg-2); }
 [data-theme="board"] .btn-danger { background: #fff; color: var(--neg); }
@@ -562,7 +562,7 @@ input[type="date"].inp { min-width: 0; }
 [data-theme="comic"] .panel-head .label { font-size: 19px; }
 [data-theme="comic"] .panel-head .link, [data-theme="comic"] .panel-head .muted { color: var(--fg); }
 [data-theme="comic"] .btn { border-radius: 999px; border: 3px solid var(--line-2); background: #fff; color: var(--fg); font-size: 15px; box-shadow: 3px 3px 0 var(--line-2); }
-[data-theme="comic"] .btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--line-2); filter: none; }
+[data-theme="comic"] .btn:active { box-shadow: 1px 1px 0 var(--line-2); filter: none; }
 [data-theme="comic"] .btn-primary { background: var(--accent); color: #fff; }
 [data-theme="comic"] .btn-ghost { border-color: transparent; box-shadow: none; background: none; }
 [data-theme="comic"] .btn-danger { color: var(--neg); }
@@ -766,7 +766,7 @@ input[type="date"].inp { min-width: 0; }
 [data-theme="tycoon"] .goal-grid .goal:nth-child(6n+6) { border-top-color: #ffa63d; }
 /* glossy buttons */
 [data-theme="tycoon"] .btn { border-radius: 14px; border: 2px solid #1560b0; background: linear-gradient(180deg, #63d9ff, #2b8fe0); color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.3); box-shadow: 0 4px 0 #0f4a8a, inset 0 2px 0 rgba(255,255,255,.55); font-size: 15px; letter-spacing: .03em; }
-[data-theme="tycoon"] .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #0f4a8a, inset 0 2px 0 rgba(255,255,255,.55); filter: none; }
+[data-theme="tycoon"] .btn:active { box-shadow: 0 1px 0 #0f4a8a, inset 0 2px 0 rgba(255,255,255,.55); filter: none; }
 [data-theme="tycoon"] .btn-primary { background: linear-gradient(180deg, #6ee86e, #23a83b); border-color: #157a2a; box-shadow: 0 4px 0 #0f5f1f, inset 0 2px 0 rgba(255,255,255,.55); color: #fff; }
 [data-theme="tycoon"] .btn-primary:active { box-shadow: 0 1px 0 #0f5f1f, inset 0 2px 0 rgba(255,255,255,.55); }
 [data-theme="tycoon"] .btn-ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--fg-2); text-shadow: none; }
@@ -839,3 +839,11 @@ input[type="date"].inp { min-width: 0; }
 /* a finished main goal gets the trophy in the looks that show a token */
 [data-theme="tycoon"] .meter.done .token, [data-theme="board"] .meter.done .token { background: url(art/trophy.png) center / contain no-repeat; border: 0; box-shadow: none; width: 40px; height: 40px; margin: -20px 0 0 -20px; filter: drop-shadow(0 3px 2px rgba(0,0,0,.35)); }
 .look .emblem { background: rgba(128,128,128,.08); border-radius: 10px; padding: 3px; }
+
+/* decoration never catches a tap: the finger always hits the control underneath */
+.meter .token, .nav .ico, .look .emblem, .lvl, .brand-mark, .hero-top .label::before, .page-head h1::before { pointer-events: none; }
+@media (max-width: 860px) {
+  .rrow .acts { gap: 10px; }
+  .mactions { gap: 12px; }
+}
+.toast.tap { cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
