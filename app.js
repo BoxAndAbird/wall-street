@@ -40,7 +40,7 @@ const VIEWS = [
 /* looks. Each is a stylesheet block keyed on data-theme, plus a few flavoured labels; functions never change. */
 const THEME_INFO = {
   dark:     { name: 'Dark ledger',  desc: 'The original. Quiet, purple, monospace.',                 color: '#0e0e12', sw: ['#0e0e12', '#a88cf6', '#63c78d'], emblem: 'art/emblem-dark.png' },
-  heist:    { name: 'Heist',        desc: 'Pause-menu black, white tabs, orange highlights, green cash.', color: '#0c0c0e', sw: ['#0c0c0e', '#f0a53a', '#7bd66a'] },
+  heist:    { name: 'Heist',        desc: 'Pause-menu black, white tabs, orange highlights, green cash.', color: '#0c0c0e', sw: ['#0c0c0e', '#f0a53a', '#7bd66a'], emblem: 'art/heist-shield.png' },
   arcade:   { name: 'Arcade',       desc: 'Neon HUD. Brackets, glow, XP bars, your level.',         color: '#07080f', sw: ['#07080f', '#b388ff', '#7cf2ff'], emblem: 'art/emblem-arcade.png' },
   tycoon:   { name: 'Tycoon',       desc: 'Glossy board-game HUD. Ribbons, gold coins, big green buttons.', color: '#1f8fe0', sw: ['#1f8fe0', '#ffc531', '#ff3d3d'], emblem: 'art/tycoon-shield.png' },
   comic:    { name: 'Comic Pop',    desc: 'Halftone, thick outlines, big shadows. Ka-ching.',       color: '#fff3c4', sw: ['#fff3c4', '#111111', '#ff3b6b'], emblem: 'art/emblem-comic.png' },

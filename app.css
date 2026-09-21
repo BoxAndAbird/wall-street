@@ -807,3 +807,23 @@ input[type="date"].inp { min-width: 0; }
 @media (max-width: 860px) {
   [data-theme="heist"] .hero-num { font-size: 58px; }
 }
+
+/* heist art: generated icons (art/heist-*.png) */
+[data-theme="heist"] .brand-mark { width: 26px; height: 26px; background: url(art/heist-shield.png) center / contain no-repeat; }
+[data-theme="heist"] .hero-top .label::before { content: ""; display: inline-block; width: 26px; height: 26px; margin: -7px 8px -7px 0; background: url(art/heist-cash.png) center / contain no-repeat; vertical-align: middle; }
+[data-theme="heist"] .stars i { clip-path: none; background: url(art/heist-star.png) center / contain no-repeat; opacity: .22; width: 24px; height: 24px; }
+[data-theme="heist"] .stars i.on { opacity: 1; filter: drop-shadow(0 0 6px rgba(255,255,255,.5)); }
+[data-theme="heist"] .page-head h1::before { content: ""; display: inline-block; width: 38px; height: 38px; margin: -8px 10px -8px 0; vertical-align: middle; background: center / contain no-repeat; }
+[data-theme="heist"] [data-view="goals"] .page-head h1::before { background-image: url(art/heist-bag.png); }
+[data-theme="heist"] [data-view="accounts"] .page-head h1::before, [data-theme="heist"] [data-view="bills"] .page-head h1::before { background-image: url(art/heist-cash.png); }
+[data-theme="heist"] [data-view="upcoming"] .page-head h1::before { background-image: url(art/heist-star.png); }
+[data-theme="heist"] [data-view="plan"] .page-head h1::before, [data-theme="heist"] [data-view="history"] .page-head h1::before { background-image: url(art/heist-shield.png); }
+[data-theme="heist"] .goal.done .row:first-child::after, [data-theme="heist"] .meter.done ~ .stars::after { content: ""; display: inline-block; width: 26px; height: 26px; margin-left: 8px; background: url(art/heist-bag.png) center / contain no-repeat; vertical-align: middle; }
+
+/* the phone tab bar must fit seven tabs in every look: equal widths, no letter-spacing, size scales with the screen */
+@media (max-width: 860px) {
+  .nav { justify-content: space-between; padding-bottom: max(env(safe-area-inset-bottom), 4px); }
+  .nav-item { flex: 1 1 0 !important; min-width: 0 !important; padding: 0 2px !important; letter-spacing: 0 !important; font-size: clamp(8px, 2.6vw, 11px) !important; white-space: nowrap; }
+  .nav-label { display: block; max-width: 100%; overflow: hidden; }
+  .nav .ico { flex: none; }
+}
