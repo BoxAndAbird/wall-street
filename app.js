@@ -107,11 +107,38 @@ async function rpc(fn, args) {
   return res.json();
 }
 function setSyncStatus(st) { sync.status = st; renderNav(); }
-/* the cloud copy wins: replace this device's ledger with it */
+/* the cloud copy wins: replace this device's ledger with it. Never with an empty one, though:
+   if the cloud copy has no accounts and this device does, this device's numbers are kept and sent up instead. */
 function adoptRemote(r, msg) {
+  const incoming = (r.data && Array.isArray(r.data.accounts)) ? r.data.accounts.length : 0;
+  if (!incoming && S.accounts.length) {
+    sync.version = r.version; saveSync();
+    toast('The cloud copy was empty, so this device\'s numbers were kept.');
+    syncPush();
+    return;
+  }
+  keepCopy('before syncing');
   S = hydrate(r.data); sync.version = r.version; sync.last = nowISO(); sync.status = 'idle'; saveSync();
   save({ local: true }); shownNet = null; render();
   if (msg) toast(msg);
+}
+
+/* safety copies: the last few ledgers this device had, kept outside the ledger itself, so a bad restore,
+   a bad sync or a stray "erase" can be undone from History. Newest first, capped by size. */
+const PREV_KEY = 'wallstreet.prev';
+function prevCopies() { try { return JSON.parse(localStorage.getItem(PREV_KEY) || '[]') || []; } catch (e) { return []; } }
+function keepCopy(reason) {
+  if (!S.accounts.length && !S.goals.length && !S.bills.length && !S.upcoming.length) return;
+  const list = prevCopies();
+  list.unshift({ at: nowISO(), reason, accounts: S.accounts.length, data: S });
+  let total = 0; const kept = [];
+  for (const c of list) { const size = JSON.stringify(c).length; if (kept.length >= 6 || total + size > 1500000) break; kept.push(c); total += size; }
+  try { localStorage.setItem(PREV_KEY, JSON.stringify(kept)); } catch (e) { console.warn('could not keep a safety copy', e); }
+}
+function dailyCopy() {
+  const list = prevCopies();
+  if (list.length && list[0].at.slice(0, 10) === todayStr()) return;
+  keepCopy('daily');
 }
 async function syncPull(o) {
   o = o || {};
@@ -484,8 +511,8 @@ function vWelcome() {
   <section class="panel welcome">
     <h2>Start with the accounts.</h2>
     <p>Add every place money lives or is owed: checking, savings, brokerage, retirement, credit cards, the car loan. Wall Street adds it up, keeps a running history, and the plan, goals and bills all hang off those balances.</p>
-    <div class="row"><button class="btn btn-primary" data-action="add-account">Add an account</button><button class="btn" data-action="demo">Load example data</button></div>
-    <p class="small" style="margin:14px 0 0">Example data is made up. Wipe it any time from History.</p>
+    <div class="row"><button class="btn btn-primary" data-action="add-account">Add an account</button><button class="btn" data-action="demo">Load example data</button>${SYNC.url ? '<button class="btn" data-action="sync-join">I have a sync code</button>' : ''}</div>
+    <p class="small" style="margin:14px 0 0">Example data is made up. Wipe it any time from History.${SYNC.url ? ' Already using Wall Street on another device or in another browser? Turn on sync there (History) and enter its code here.' : ''}</p>
   </section>`;
 }
 function accountGroups() {
@@ -718,6 +745,8 @@ function vHistory() {
         : `<button class="btn btn-primary" data-action="sync-on">Turn on sync</button><button class="btn" data-action="sync-join">I have a code</button>`}</div></div>` : ''}
     <div class="data-row"><div><div class="strong">Backup</div><div class="muted small">Download everything as one JSON file. This app keeps its data in this browser only, so keep a copy somewhere safe.</div></div><button class="btn" data-action="export">Download backup</button></div>
     <div class="data-row"><div><div class="strong">Restore</div><div class="muted small">Load a backup file. Replaces what is here.</div></div><button class="btn" data-action="import">Choose file</button></div>
+    ${prevCopies().length ? `<div class="data-row"><div><div class="strong">Previous copies</div><div class="muted small">Safety copies this device kept before anything replaced its numbers, plus one a day. Going back to one replaces what is here now.</div>
+      <ul class="list copies">${prevCopies().map((c, i) => `<li><span class="num muted w-date">${fmtDate(c.at, { month: 'short', day: 'numeric' })}</span><span class="grow">${esc(c.reason)} <span class="muted small">${DOT} ${fmtTime(c.at)} ${DOT} ${c.accounts} account${c.accounts === 1 ? '' : 's'}</span></span><button class="btn btn-sm btn-ghost" data-action="restore-copy" data-i="${i}">Go back</button></li>`).join('')}</ul></div></div>` : ''}
     <div class="data-row"><div><div class="strong">Start over</div><div class="muted small">Wipe all accounts, goals, bills, upcoming, plan and history${sync.code ? ', here and on every synced device' : ''}.</div></div><button class="btn btn-danger" data-action="reset">Erase everything</button></div>
   </section>`;
 }
@@ -1184,7 +1213,11 @@ const actions = {
     try { remote = await rpc('ws_get', { code }); } catch (e) { console.warn(e); toast('Could not reach the cloud. Try again in a moment.'); return; }
     if (!remote) { toast('No ledger uses that code. Check it and try again.'); return; }
     const d = remote.data || {};
-    if (S.accounts.length && !(await confirmDlg({ title: 'Replace what is on this device?', body: 'The synced ledger has ' + (d.accounts || []).length + ' accounts and last changed ' + fmtDate(remote.updated_at) + '. It replaces the numbers on this device. Download a backup first if you want to keep this copy.', ok: 'Replace and sync', danger: true }))) return;
+    if (!(d.accounts || []).length && S.accounts.length) {
+      await confirmDlg({ title: 'That ledger is empty', body: 'The code is right, but the cloud copy has no accounts, and this device does. Nothing was changed. If your numbers are on this device, turn on sync here instead and enter the new code on the other devices.', ok: 'OK' });
+      return;
+    }
+    if (S.accounts.length && !(await confirmDlg({ title: 'Replace what is on this device?', body: 'The synced ledger has ' + (d.accounts || []).length + ' accounts and last changed ' + fmtDate(remote.updated_at) + '. It replaces the numbers on this device. A safety copy of what is here now is kept under History, then Previous copies.', ok: 'Replace and sync', danger: true }))) return;
     sync.code = prettyCode(code);
     adoptRemote(remote, 'Connected. Same numbers everywhere now.');
   },
@@ -1215,15 +1248,24 @@ const actions = {
   },
   import() { $('#importFile').click(); },
   async reset() {
-    const ok = await confirmDlg({ title: 'Erase everything?', body: 'All accounts, goals, bills, upcoming, plan and history in this browser are wiped. Download a backup first if you might want it back.', ok: 'Erase', danger: true });
+    const ok = await confirmDlg({ title: 'Erase everything?', body: 'All accounts, goals, bills, upcoming, plan and history in this browser are wiped' + (sync.code ? ', and on every synced device' : '') + '. A safety copy is kept under History, then Previous copies.', ok: 'Erase', danger: true });
     if (!ok) return;
+    keepCopy('before erasing');
     const theme = S.settings.theme;
     S = fresh(); S.settings.theme = theme; shownNet = null;
     save(); render(); toast('Fresh start');
   },
   async demo() {
-    if (S.accounts.length && !(await confirmDlg({ title: 'Load example data?', body: 'This replaces what is here.', ok: 'Load', danger: true }))) return;
+    if (S.accounts.length && !(await confirmDlg({ title: 'Load example data?', body: 'This replaces what is here. A safety copy is kept under History, then Previous copies.', ok: 'Load', danger: true }))) return;
+    keepCopy('before example data');
     loadDemo(); shownNet = null; save(); render(); toast('Example data loaded');
+  },
+  async 'restore-copy'(el) {
+    const c = prevCopies()[+el.dataset.i]; if (!c) return;
+    const ok = await confirmDlg({ title: 'Go back to this copy?', body: 'From ' + fmtDate(c.at) + ' ' + fmtTime(c.at) + ', ' + c.accounts + ' account' + (c.accounts === 1 ? '' : 's') + '. It replaces what is here now' + (sync.code ? ' and syncs to your other devices' : '') + '. The current numbers are kept as a copy too.', ok: 'Go back', danger: true });
+    if (!ok) return;
+    keepCopy('before going back');
+    S = hydrate(c.data); shownNet = null; save(); render(); toast('Restored the copy from ' + fmtDate(c.at, { month: 'short', day: 'numeric' }));
   },
 };
 function claimAccounts(b) { S.buckets.forEach(x => { if (x !== b) x.accountIds = x.accountIds.filter(id => !b.accountIds.includes(id)); }); }
@@ -1295,8 +1337,9 @@ async function onImportFile(e) {
   try {
     const d = JSON.parse(await file.text());
     if (!d || !Array.isArray(d.accounts)) throw new Error('not a backup');
-    const ok = await confirmDlg({ title: 'Restore this backup?', body: d.accounts.length + ' accounts, ' + (d.goals || []).length + ' goals, ' + (d.bills || []).length + ' bills, ' + (d.upcoming || []).length + ' upcoming, ' + (d.snapshots || []).length + ' snapshots. This replaces everything currently here.', ok: 'Restore', danger: true });
+    const ok = await confirmDlg({ title: 'Restore this backup?', body: d.accounts.length + ' accounts, ' + (d.goals || []).length + ' goals, ' + (d.bills || []).length + ' bills, ' + (d.upcoming || []).length + ' upcoming, ' + (d.snapshots || []).length + ' snapshots. This replaces everything currently here; a safety copy of the current numbers is kept.', ok: 'Restore', danger: true });
     if (!ok) return;
+    keepCopy('before restoring a backup');
     S = hydrate(d); shownNet = null; save(); render(); toast('Backup restored');
   } catch (err) { console.warn(err); toast('That file is not a Wall Street backup'); }
 }
@@ -1329,7 +1372,7 @@ function init() {
   window.addEventListener('focus', () => syncPull({}));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) syncPull({}); });
   /* today's point on the chart always reflects the current numbers, including bills that came due since the last change */
-  if (S.accounts.length) { snapshot(); save({ local: true }); }
+  if (S.accounts.length) { snapshot(); save({ local: true }); dailyCopy(); }
   render();
   if (sync.code) syncPull({ force: true, quiet: true });
 }

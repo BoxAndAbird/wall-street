@@ -241,6 +241,8 @@ input[type="date"].inp { min-width: 0; }
 .data-row:last-child { border-bottom: 0; }
 .data-row .muted { max-width: 60ch; }
 .data-row .acts { flex-wrap: wrap; gap: 8px; justify-content: flex-end; flex: none; }
+.data-row .copies { margin-top: 10px; border: 1px solid var(--line); border-radius: 2px; }
+.data-row .copies li { padding: 8px 12px; }
 
 /* hover only where a pointer can hover, so taps on a phone do not leave rows stuck highlighted */
 @media (hover: hover) {
