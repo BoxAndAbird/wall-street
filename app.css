@@ -334,137 +334,6 @@ input[type="date"].inp { min-width: 0; }
 @keyframes sheet { from { transform: translateY(24px); opacity: .6; } to { transform: none; opacity: 1; } }
 
 /* ======================================================================
-   board look: a friendly property-game table. Cream deed cards with property-colour
-   bands on green felt, rounded type, red pill buttons, a token that walks the goal track.
-   ====================================================================== */
-:root[data-theme="board"] {
-  color-scheme: light;
-  --bg: #0f5f3f;
-  --bg-2: #fbf6ea;
-  --bg-3: #f1e9d8;
-  --line: #e3dac4;
-  --line-2: #1f2a24;
-  --fg: #1c2320;
-  --fg-2: #4f5a54;
-  --fg-3: #7c867f;
-  --accent: #d7263d;
-  --accent-text: #b81f33;
-  --accent-fg: #fff8ee;
-  --pos: #1f8f4e;
-  --neg: #c9382c;
-  --chart: #1f8f4e;
-  --font: "Nunito", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --mono: "Fredoka", "Nunito", system-ui, sans-serif;
-  --r: 14px;
-  --felt-ink: #f4ecd8;
-  --ink-shadow: 0 5px 0 rgba(0, 0, 0, .22);
-}
-[data-theme="board"] body { background-color: var(--bg); background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.04) 0 2px, transparent 2px 14px); font-size: 15px; }
-[data-theme="board"] .num { letter-spacing: 0; font-weight: 600; }
-[data-theme="board"] h1, [data-theme="board"] h2, [data-theme="board"] h3, [data-theme="board"] .mg-name, [data-theme="board"] .strong { font-family: "Fredoka", var(--font); font-weight: 600; }
-[data-theme="board"] .label { font-family: "Fredoka", var(--font); font-weight: 600; letter-spacing: .06em; }
-
-/* felt: what sits outside the cards */
-[data-theme="board"] .page-head h1, [data-theme="board"] .page-head .sub { color: var(--felt-ink); }
-[data-theme="board"] .page-head .sub { opacity: .88; }
-[data-theme="board"] .page-head .btn { box-shadow: var(--ink-shadow); }
-[data-theme="board"] .side { border-color: rgba(0,0,0,.28); }
-[data-theme="board"] .brand-mark { display: none; }
-[data-theme="board"] .brand-name { background: var(--accent); color: #fff; padding: 6px 12px; border-radius: 8px; border: 2px solid var(--line-2); font-family: "Fredoka", var(--font); font-weight: 600; letter-spacing: .12em; box-shadow: 0 3px 0 var(--line-2); }
-[data-theme="board"] .link { color: var(--felt-ink); }
-[data-theme="board"] .side-status { color: rgba(244,236,216,.72); }
-[data-theme="board"] .nav-item { color: rgba(244,236,216,.82); border-left-color: transparent; }
-[data-theme="board"] .nav-item.on { color: #fff; background: rgba(255,255,255,.12); border-left-color: #fff; }
-[data-theme="board"] .nav .ico { display: inline-flex; width: 18px; height: 18px; margin-right: 10px; }
-[data-theme="board"] .nav-n { color: rgba(244,236,216,.6); }
-
-/* cards */
-[data-theme="board"] .hero, [data-theme="board"] .summary-row { background: var(--bg-2); border: 2px solid var(--line-2); border-radius: var(--r); padding: 18px 20px; box-shadow: var(--ink-shadow); }
-[data-theme="board"] .hero { margin-bottom: 20px; }
-[data-theme="board"] .panel { border: 2px solid var(--line-2); border-radius: var(--r); box-shadow: var(--ink-shadow); overflow: hidden; }
-[data-theme="board"] .panel-head { background: #0072bb; color: #fff; border-bottom: 2px solid var(--line-2); padding: 11px 18px; }
-[data-theme="board"] .panel-head .label, [data-theme="board"] .panel-head .muted, [data-theme="board"] .panel-head .link, [data-theme="board"] .panel-head .num { color: #fff; }
-[data-theme="board"] .panel-head .label { font-size: 15px; text-transform: none; letter-spacing: .02em; }
-[data-theme="board"] .panel-head .seg { border-color: rgba(255,255,255,.75); }
-[data-theme="board"] .panel-head .seg button { color: rgba(255,255,255,.85); border-right-color: rgba(255,255,255,.5); }
-[data-theme="board"] .panel-head .seg button.on { background: #fff; color: var(--fg); }
-/* property colours, one per card in turn */
-[data-theme="board"] .panel:nth-of-type(7n+1) .panel-head { background: #d7263d; }
-[data-theme="board"] .panel:nth-of-type(7n+2) .panel-head { background: #f28c1a; }
-[data-theme="board"] .panel:nth-of-type(7n+3) .panel-head { background: #1fa85a; }
-[data-theme="board"] .panel:nth-of-type(7n+4) .panel-head { background: #0072bb; }
-[data-theme="board"] .panel:nth-of-type(7n+5) .panel-head { background: #d63f8c; }
-[data-theme="board"] .panel:nth-of-type(7n+6) .panel-head { background: #8a4b2a; }
-[data-theme="board"] .panel:nth-of-type(7n+7) .panel-head { background: #6b45b0; }
-[data-theme="board"] .goal-grid .goal { border-top: 12px solid #d7263d; }
-[data-theme="board"] .goal-grid .goal:nth-child(7n+2) { border-top-color: #f28c1a; }
-[data-theme="board"] .goal-grid .goal:nth-child(7n+3) { border-top-color: #1fa85a; }
-[data-theme="board"] .goal-grid .goal:nth-child(7n+4) { border-top-color: #0072bb; }
-[data-theme="board"] .goal-grid .goal:nth-child(7n+5) { border-top-color: #d63f8c; }
-[data-theme="board"] .goal-grid .goal:nth-child(7n+6) { border-top-color: #8a4b2a; }
-[data-theme="board"] .goal-grid .goal:nth-child(7n+7) { border-top-color: #6b45b0; }
-[data-theme="board"] .welcome { border-top: 12px solid var(--accent); }
-
-/* the hero: GO chip on a gain, ink switch */
-[data-theme="board"] .hero-delta .pos::before { content: "GO"; display: inline-block; background: var(--pos); color: #fff; font-family: "Fredoka", var(--font); font-size: 10px; letter-spacing: .12em; padding: 2px 7px; border-radius: 6px; margin-right: 7px; vertical-align: 2px; border: 1.5px solid var(--line-2); }
-[data-theme="board"] .hero-top .seg { border: 2px solid var(--line-2); border-radius: 999px; overflow: hidden; }
-[data-theme="board"] .hero-top .seg button { color: var(--fg-2); border-right: 0; font-family: "Fredoka", var(--font); font-size: 12px; letter-spacing: 0; text-transform: none; }
-[data-theme="board"] .hero-top .seg button.on { background: var(--line-2); color: #fff; }
-
-/* controls */
-[data-theme="board"] .btn { border-radius: 999px; border: 2px solid var(--line-2); background: #fff; color: var(--fg); font-family: "Fredoka", var(--font); font-weight: 600; letter-spacing: .01em; box-shadow: 0 3px 0 var(--line-2); }
-[data-theme="board"] .btn:active { box-shadow: 0 1px 0 var(--line-2); filter: none; }
-[data-theme="board"] .btn-primary { background: var(--accent); color: #fff; }
-[data-theme="board"] .btn-ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--fg-2); }
-[data-theme="board"] .btn-danger { background: #fff; color: var(--neg); }
-[data-theme="board"] .btn:disabled { box-shadow: none; }
-[data-theme="board"] .seg { border-color: var(--line-2); }
-[data-theme="board"] .tag { border-radius: 999px; border: 1.5px solid var(--line-2); background: #fff; color: var(--fg); font-family: "Fredoka", var(--font); font-size: 11px; letter-spacing: .04em; padding: 1px 8px; }
-[data-theme="board"] .pos-tag { background: var(--pos); color: #fff; }
-[data-theme="board"] .neg-tag { background: var(--neg); color: #fff; }
-[data-theme="board"] .inp { background: #fff; border: 2px solid var(--line-2); border-radius: 10px; }
-[data-theme="board"] .inp:focus { border-color: var(--accent); }
-[data-theme="board"] .modal { background: var(--bg-2); border: 2px solid var(--line-2); border-radius: var(--r); box-shadow: var(--ink-shadow); }
-[data-theme="board"] .modal-bg { background: rgba(10, 40, 28, .6); }
-[data-theme="board"] .toast { background: var(--line-2); color: #fff; border-radius: 999px; }
-[data-theme="board"] .checks { border: 2px solid var(--line-2); border-radius: 10px; }
-[data-theme="board"] .check input { accent-color: var(--pos); }
-
-/* tracks: the goal meter is a board, the token is you */
-[data-theme="board"] .bar, [data-theme="board"] .tbar { height: 10px; border-radius: 999px; background: #fff; border: 1.5px solid var(--line-2); overflow: hidden; }
-[data-theme="board"] .bar i, [data-theme="board"] .tbar .fill { background: var(--pos); }
-[data-theme="board"] .tbar .mark { background: var(--line-2); top: -2px; height: 10px; }
-[data-theme="board"] .meter { height: 18px; gap: 2px; margin: 14px 0 12px; }
-[data-theme="board"] .meter i { background: #fff; border: 1.5px solid var(--line-2); border-radius: 4px; }
-[data-theme="board"] .meter i b { background: var(--pos); }
-[data-theme="board"] .meter .token { display: block; position: absolute; top: 50%; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%; background: var(--accent); border: 2px solid var(--line-2); box-shadow: 0 2px 0 var(--line-2); transition: left .6s cubic-bezier(.2,.7,.2,1); }
-[data-theme="board"] .meter.done .token { background: #e6b400; }
-[data-theme="board"] .mg-pct { font-family: "Fredoka", var(--font); }
-[data-theme="board"] .hero-num { font-family: "Fredoka", var(--font); font-weight: 600; letter-spacing: -0.01em; }
-
-/* lists */
-[data-theme="board"] .group-head { color: var(--fg-2); }
-[data-theme="board"] .list li, [data-theme="board"] .rrow, [data-theme="board"] .mini-goal, [data-theme="board"] .bucket, [data-theme="board"] .data-row, [data-theme="board"] .kv, [data-theme="board"] .tbl td, [data-theme="board"] .tbl th { border-color: var(--line); }
-[data-theme="board"] .tbl th { color: var(--fg-2); }
-
-@media (hover: hover) {
-  [data-theme="board"] .btn:hover { background: #fff; border-color: var(--line-2); filter: brightness(.97); }
-  [data-theme="board"] .btn-primary:hover { background: var(--accent); filter: brightness(1.06); }
-  [data-theme="board"] .link:hover { color: #fff; }
-  [data-theme="board"] .nav-item:hover { background: rgba(255,255,255,.08); color: #fff; }
-}
-@media (max-width: 860px) {
-  [data-theme="board"] .side { background: var(--bg); border-bottom: 2px solid rgba(0,0,0,.28); }
-  [data-theme="board"] .nav { background: var(--bg-2); border-top: 2px solid var(--line-2); }
-  [data-theme="board"] .nav-item { color: var(--fg-2); flex-direction: column; gap: 3px; font-size: 10.5px; padding: 0 5px; border-top: 0; height: 60px; background: none; }
-  [data-theme="board"] .nav-item.on { color: var(--accent-text); background: none; }
-  [data-theme="board"] .nav .ico { display: block; width: 20px; height: 20px; margin: 0; }
-  [data-theme="board"] .main { padding-bottom: calc(60px + 28px + env(safe-area-inset-bottom)); }
-  [data-theme="board"] .hero, [data-theme="board"] .summary-row { padding: 16px; }
-  [data-theme="board"] .toast-root { bottom: calc(60px + 14px + env(safe-area-inset-bottom)); }
-}
-
-/* ======================================================================
    look picker + shared hooks for the themed looks
    ====================================================================== */
 .looks { display: flex; flex-direction: column; gap: 8px; }
@@ -474,12 +343,12 @@ input[type="date"].inp { min-width: 0; }
 .look .sw { display: flex; gap: 4px; flex: none; }
 .look .sw i { display: block; width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(128,128,128,.45); }
 .lvl { display: none; }
-:root:is([data-theme="arcade"],[data-theme="tycoon"],[data-theme="comic"],[data-theme="casino"],[data-theme="passbook"]) .nav .ico { display: inline-flex; width: 18px; height: 18px; margin-right: 10px; }
+:root:is([data-theme="arcade"],[data-theme="tycoon"],[data-theme="heist"],[data-theme="comic"],[data-theme="casino"],[data-theme="passbook"]) .nav .ico { display: inline-flex; width: 18px; height: 18px; margin-right: 10px; }
 @media (max-width: 860px) {
-  :root:is([data-theme="arcade"],[data-theme="tycoon"],[data-theme="comic"],[data-theme="casino"],[data-theme="passbook"]) .nav-item { flex-direction: column; gap: 3px; font-size: 10.5px; padding: 0 5px; height: 60px; border-top: 0; }
-  :root:is([data-theme="arcade"],[data-theme="tycoon"],[data-theme="comic"],[data-theme="casino"],[data-theme="passbook"]) .nav .ico { display: block; width: 20px; height: 20px; margin: 0; }
-  :root:is([data-theme="arcade"],[data-theme="tycoon"],[data-theme="comic"],[data-theme="casino"],[data-theme="passbook"]) .main { padding-bottom: calc(60px + 28px + env(safe-area-inset-bottom)); }
-  :root:is([data-theme="arcade"],[data-theme="tycoon"],[data-theme="comic"],[data-theme="casino"],[data-theme="passbook"]) .toast-root { bottom: calc(60px + 14px + env(safe-area-inset-bottom)); }
+  :root:is([data-theme="arcade"],[data-theme="tycoon"],[data-theme="heist"],[data-theme="comic"],[data-theme="casino"],[data-theme="passbook"]) .nav-item { flex-direction: column; gap: 3px; font-size: 10.5px; padding: 0 5px; height: 60px; border-top: 0; }
+  :root:is([data-theme="arcade"],[data-theme="tycoon"],[data-theme="heist"],[data-theme="comic"],[data-theme="casino"],[data-theme="passbook"]) .nav .ico { display: block; width: 20px; height: 20px; margin: 0; }
+  :root:is([data-theme="arcade"],[data-theme="tycoon"],[data-theme="heist"],[data-theme="comic"],[data-theme="casino"],[data-theme="passbook"]) .main { padding-bottom: calc(60px + 28px + env(safe-area-inset-bottom)); }
+  :root:is([data-theme="arcade"],[data-theme="tycoon"],[data-theme="heist"],[data-theme="comic"],[data-theme="casino"],[data-theme="passbook"]) .toast-root { bottom: calc(60px + 14px + env(safe-area-inset-bottom)); }
 }
 
 /* ======================================================================
@@ -837,7 +706,7 @@ input[type="date"].inp { min-width: 0; }
 .look .emblem { width: 40px; height: 40px; object-fit: contain; flex: none; }
 
 /* a finished main goal gets the trophy in the looks that show a token */
-[data-theme="tycoon"] .meter.done .token, [data-theme="board"] .meter.done .token { background: url(art/trophy.png) center / contain no-repeat; border: 0; box-shadow: none; width: 40px; height: 40px; margin: -20px 0 0 -20px; filter: drop-shadow(0 3px 2px rgba(0,0,0,.35)); }
+[data-theme="tycoon"] .meter.done .token { background: url(art/trophy.png) center / contain no-repeat; border: 0; box-shadow: none; width: 40px; height: 40px; margin: -20px 0 0 -20px; filter: drop-shadow(0 3px 2px rgba(0,0,0,.35)); }
 .look .emblem { background: rgba(128,128,128,.08); border-radius: 10px; padding: 3px; }
 
 /* decoration never catches a tap: the finger always hits the control underneath */
@@ -847,3 +716,94 @@ input[type="date"].inp { min-width: 0; }
   .mactions { gap: 12px; }
 }
 .toast.tap { cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
+/* ======================================================================
+   heist: pause-menu black, white uppercase tabs, orange highlights, green outlined cash.
+   (Replaces the board look.)
+   ====================================================================== */
+:root[data-theme="heist"] {
+  color-scheme: dark;
+  --bg: #0c0c0e; --bg-2: #131316; --bg-3: #1c1c20; --line: #26262b; --line-2: #3a3a40;
+  --fg: #f2f2f2; --fg-2: #b8b8bc; --fg-3: #7a7a80;
+  --accent: #f0a53a; --accent-text: #f7b955; --accent-fg: #141008;
+  --pos: #7bd66a; --neg: #e5484d; --chart: #7bd66a;
+  --font: "Nunito", "Segoe UI", system-ui, sans-serif;
+  --mono: "Anton", "Oswald", "Impact", sans-serif;
+  --r: 2px; --orange: #f0a53a;
+}
+[data-theme="heist"] body { background-color: var(--bg); background-image: radial-gradient(ellipse at 50% -10%, rgba(240,165,58,.22), transparent 55%), linear-gradient(180deg, #17121b 0%, #0c0c0e 45%), repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 4px); }
+[data-theme="heist"] .label, [data-theme="heist"] .btn, [data-theme="heist"] .tag, [data-theme="heist"] .nav-item, [data-theme="heist"] .seg button, [data-theme="heist"] .lvl, [data-theme="heist"] .link, [data-theme="heist"] .group-head, [data-theme="heist"] .tbl th { font-family: "Oswald", "Roboto Condensed", sans-serif; font-weight: 500; text-transform: uppercase; letter-spacing: .12em; }
+[data-theme="heist"] .label { color: #d0d0d4; font-size: 11px; letter-spacing: .18em; }
+[data-theme="heist"] h1, [data-theme="heist"] h2, [data-theme="heist"] h3, [data-theme="heist"] .mg-name, [data-theme="heist"] .brand-name { font-family: "Anton", "Oswald", "Impact", sans-serif; font-weight: 400; text-transform: uppercase; letter-spacing: .03em; }
+[data-theme="heist"] h1 { font-size: 40px; }
+[data-theme="heist"] .mg-name { font-size: 22px; letter-spacing: .04em; }
+[data-theme="heist"] .num { font-weight: 400; letter-spacing: .02em; font-size: 1.08em; }
+[data-theme="heist"] .hero-num { font-family: "Anton", "Impact", sans-serif; color: #8ee08a; -webkit-text-stroke: 1px #0b2a0b; text-shadow: 0 3px 0 #000, 0 0 18px rgba(123,214,106,.25); letter-spacing: .02em; }
+[data-theme="heist"] .hero-num2 { color: #8ee08a; }
+/* panels: translucent black with a hairline, the header carries an orange bar */
+[data-theme="heist"] .panel, [data-theme="heist"] .hero, [data-theme="heist"] .summary-row { background: rgba(10,10,12,.86); border: 1px solid rgba(255,255,255,.14); border-top: 2px solid rgba(255,255,255,.4); border-radius: var(--r); box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+[data-theme="heist"] .hero, [data-theme="heist"] .summary-row { padding: 18px 20px; }
+[data-theme="heist"] .panel-head { background: rgba(255,255,255,.04); border-bottom: 1px solid rgba(255,255,255,.12); box-shadow: inset 4px 0 0 var(--orange); }
+[data-theme="heist"] .panel-head .label { color: #fff; font-size: 12px; }
+[data-theme="heist"] .panel-head .link { color: var(--accent-text); }
+[data-theme="heist"] .seg { border: 1px solid rgba(255,255,255,.5); border-radius: 0; }
+[data-theme="heist"] .seg button { color: #d0d0d4; border-right-color: rgba(255,255,255,.3); font-size: 11px; letter-spacing: .1em; }
+[data-theme="heist"] .seg button.on { background: #fff; color: #000; }
+/* controls: pause-menu items, the highlight is white on black, the go button is orange */
+[data-theme="heist"] .btn { border-radius: 2px; border: 1px solid rgba(255,255,255,.4); background: rgba(255,255,255,.04); color: #fff; font-size: 13px; }
+[data-theme="heist"] .btn-primary { background: var(--orange); border-color: var(--orange); color: var(--accent-fg); }
+[data-theme="heist"] .btn-ghost { border-color: transparent; background: none; color: var(--fg-2); }
+[data-theme="heist"] .btn-danger { border-color: var(--neg); color: var(--neg); background: none; }
+[data-theme="heist"] .tag { border-radius: 0; border: 1px solid rgba(255,255,255,.55); color: #fff; font-size: 10px; padding: 1px 6px; letter-spacing: .14em; }
+[data-theme="heist"] .pos-tag { border-color: var(--pos); color: var(--pos); }
+[data-theme="heist"] .neg-tag { border-color: var(--neg); color: var(--neg); }
+[data-theme="heist"] .lvl { display: inline-block; margin-left: 8px; padding: 1px 7px; border: 1px solid #fff; color: #fff; font-size: 10px; letter-spacing: .16em; vertical-align: 1px; }
+[data-theme="heist"] .hero-delta .pos::before { content: "EARNED"; display: inline-block; background: var(--orange); color: var(--accent-fg); padding: 1px 7px; margin-right: 8px; font-family: "Oswald", sans-serif; font-weight: 500; font-size: 10px; letter-spacing: .16em; }
+/* stat bars and wanted stars */
+[data-theme="heist"] .meter { height: 10px; gap: 3px; margin: 12px 0 8px; }
+[data-theme="heist"] .meter i { background: rgba(255,255,255,.12); border: 0; border-radius: 0; }
+[data-theme="heist"] .meter i b { background: #fff; }
+[data-theme="heist"] .meter.done i b { background: var(--pos); }
+[data-theme="heist"] .bar, [data-theme="heist"] .tbar { height: 6px; background: rgba(255,255,255,.12); border-radius: 0; }
+[data-theme="heist"] .bar i, [data-theme="heist"] .tbar .fill { background: #fff; }
+[data-theme="heist"] .bar i.done { background: var(--pos); }
+[data-theme="heist"] .tbar .mark { background: var(--orange); }
+[data-theme="heist"] .mg-pct { font-family: "Anton", "Impact", sans-serif; letter-spacing: .02em; }
+.stars { display: none; gap: 5px; margin: 2px 0 8px; }
+.stars i { width: 20px; height: 20px; display: block; background: rgba(255,255,255,.18); clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
+.stars i.on { background: #fff; }
+[data-theme="heist"] .stars { display: flex; }
+[data-theme="heist"] .stars i.on { filter: drop-shadow(0 0 5px rgba(255,255,255,.55)); }
+/* dialogs, chrome */
+[data-theme="heist"] .inp { background: #0c0c0e; border: 1px solid rgba(255,255,255,.4); border-radius: 2px; }
+[data-theme="heist"] .inp:focus { border-color: var(--orange); }
+[data-theme="heist"] .modal { background: rgba(12,12,14,.97); border: 1px solid rgba(255,255,255,.3); border-top: 2px solid #fff; border-radius: 2px; }
+[data-theme="heist"] .modal-bg { background: rgba(0,0,0,.65); }
+[data-theme="heist"] .toast { background: var(--orange); color: var(--accent-fg); border-radius: 0; font-family: "Oswald", sans-serif; text-transform: uppercase; letter-spacing: .12em; }
+[data-theme="heist"] .brand-name { font-size: 16px; letter-spacing: .12em; border-bottom: 2px solid var(--orange); padding-bottom: 2px; }
+[data-theme="heist"] .brand-mark { background: var(--orange); }
+[data-theme="heist"] .link { color: var(--fg-2); font-size: 12px; }
+[data-theme="heist"] .nav-item { color: #b8b8bc; font-size: 13px; }
+[data-theme="heist"] .nav-item.on { color: #000; background: #fff; border-left-color: #fff; }
+[data-theme="heist"] .nav .ico { display: none !important; }
+[data-theme="heist"] .list li, [data-theme="heist"] .rrow, [data-theme="heist"] .mini-goal, [data-theme="heist"] .bucket, [data-theme="heist"] .data-row, [data-theme="heist"] .kv, [data-theme="heist"] .tbl td, [data-theme="heist"] .tbl th { border-color: rgba(255,255,255,.1); }
+[data-theme="heist"] .look { background: #0c0c0e; border-color: rgba(255,255,255,.3); }
+@media (hover: hover) {
+  [data-theme="heist"] .btn:hover { background: #fff; color: #000; border-color: #fff; }
+  [data-theme="heist"] .btn-primary:hover { background: var(--orange); color: var(--accent-fg); border-color: var(--orange); filter: brightness(1.08); }
+  [data-theme="heist"] .nav-item:hover { background: rgba(255,255,255,.1); color: #fff; }
+  [data-theme="heist"] .link:hover { color: var(--accent-text); }
+}
+@media (max-width: 860px) {
+  [data-theme="heist"] .side { background: rgba(12,12,14,.96); border-bottom: 1px solid rgba(255,255,255,.2); }
+  [data-theme="heist"] .nav { background: rgba(12,12,14,.98); border-top: 1px solid rgba(255,255,255,.3); }
+  [data-theme="heist"] .nav-item { flex-direction: row; height: var(--nav-h); font-size: 10px; letter-spacing: .08em; padding: 0 6px; }
+  [data-theme="heist"] .nav-item.on { color: #000; background: #fff; }
+  [data-theme="heist"] .main { padding-bottom: calc(var(--nav-h) + 28px + env(safe-area-inset-bottom)); }
+}
+
+[data-theme="heist"] .hero-num { font-size: 76px; }
+[data-theme="heist"] .stat .num { font-size: 21px; }
+@media (max-width: 860px) {
+  [data-theme="heist"] .hero-num { font-size: 58px; }
+}

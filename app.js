@@ -40,7 +40,7 @@ const VIEWS = [
 /* looks. Each is a stylesheet block keyed on data-theme, plus a few flavoured labels; functions never change. */
 const THEME_INFO = {
   dark:     { name: 'Dark ledger',  desc: 'The original. Quiet, purple, monospace.',                 color: '#0e0e12', sw: ['#0e0e12', '#a88cf6', '#63c78d'], emblem: 'art/emblem-dark.png' },
-  board:    { name: 'Board',        desc: 'Deed cards on green felt. Pass GO, collect.',             color: '#0f5f3f', sw: ['#0f5f3f', '#fbf6ea', '#d7263d'], emblem: 'art/emblem-board.png' },
+  heist:    { name: 'Heist',        desc: 'Pause-menu black, white tabs, orange highlights, green cash.', color: '#0c0c0e', sw: ['#0c0c0e', '#f0a53a', '#7bd66a'] },
   arcade:   { name: 'Arcade',       desc: 'Neon HUD. Brackets, glow, XP bars, your level.',         color: '#07080f', sw: ['#07080f', '#b388ff', '#7cf2ff'], emblem: 'art/emblem-arcade.png' },
   tycoon:   { name: 'Tycoon',       desc: 'Glossy board-game HUD. Ribbons, gold coins, big green buttons.', color: '#1f8fe0', sw: ['#1f8fe0', '#ffc531', '#ff3d3d'], emblem: 'art/tycoon-shield.png' },
   comic:    { name: 'Comic Pop',    desc: 'Halftone, thick outlines, big shadows. Ka-ching.',       color: '#fff3c4', sw: ['#fff3c4', '#111111', '#ff3b6b'], emblem: 'art/emblem-comic.png' },
@@ -50,7 +50,7 @@ const THEME_INFO = {
 };
 const THEMES = Object.keys(THEME_INFO);
 const WORDS = {
-  board:    { 'Main goal': 'Next property', 'Coming up': 'Chance & rent', 'Bills left': 'Rent due', 'Where it sits': 'Your deeds', 'Funded': 'Owned', 'Plan drift': 'Rebalance' },
+  heist:    { 'Net worth': 'Cash', 'Main goal': 'The score', 'Coming up': 'Incoming', 'Bills left': 'Debts', 'Where it sits': 'Assets', 'Funded': 'Done', 'Plan drift': 'Rebalance', 'LVL': 'RANK' },
   arcade:   { 'Net worth': 'Bankroll', 'Main goal': 'Main quest', 'Coming up': 'Incoming', 'Bills left': 'Debts due', 'Where it sits': 'Inventory', 'Funded': 'Unlocked', 'Plan drift': 'Loadout' },
   tycoon:   { 'Net worth': 'Cash', 'Main goal': 'Next landmark', 'Coming up': 'Up next', 'Bills left': 'Rent due', 'Where it sits': 'Your board', 'Funded': 'Built!', 'Plan drift': 'Rebalance' },
   comic:    { 'Main goal': 'The big one', 'Coming up': 'Up next!', 'Where it sits': 'The stash', 'Funded': 'Done!', 'Plan drift': 'Shuffle' },
@@ -463,7 +463,7 @@ function vOverview() {
   <header class="hero">
     <div>
       <div class="hero-top">
-        <span class="label">${word('Net worth')}${after ? ` <span class="muted">${DOT} after withdrawals</span>` : ''} <span class="lvl">LVL ${level(NW)}</span></span>
+        <span class="label">${word('Net worth')}${after ? ` <span class="muted">${DOT} after withdrawals</span>` : ''} <span class="lvl">${word('LVL')} ${level(NW)}</span></span>
         <div class="seg"><button class="${after ? '' : 'on'}" data-action="view" data-view="now">As is</button><button class="${after ? 'on' : ''}" data-action="view" data-view="after">After withdrawals</button></div>
       </div>
       <div class="hero-num num" data-count="${NW}">${money(NW, { cents: false })}</div>
@@ -538,6 +538,7 @@ function mainGoalPanel(g) {
       <div>
         <div class="row"><span class="mg-pct num${done ? ' pos' : ''}">${pctStr(pct)}</span><span class="grow"></span><span class="small muted">${done ? 'funded' : 'of the way there'}</span></div>
         ${meterHTML(pct, done)}
+        <div class="stars">${[1, 2, 3, 4, 5].map(i => `<i class="${pct >= i * 20 - 0.5 ? 'on' : ''}"></i>`).join('')}</div>
         <div class="small muted">${pace}</div>
         ${trend}
       </div>
