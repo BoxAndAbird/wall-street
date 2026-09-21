@@ -59,32 +59,63 @@ const WORDS = {
 const word = s => (WORDS[S.settings.theme] || {})[s] || s;
 /* help: how to put the app on a phone's home screen, with a picture per step, and the link to share */
 const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+const IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 const IS_STANDALONE = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
 let helpOS = IS_IOS ? 'ios' : 'android';
 const APP_URL = 'https://boxandabird.github.io/wall-street/';
 const PHONE = (inner) => `<svg viewBox="0 0 80 150" class="phone"><rect x="4" y="2" width="72" height="146" rx="10" class="frame"/><rect x="9" y="12" width="62" height="126" rx="4" class="screen"/>${inner}</svg>`;
+/* the app as seen in a browser: brand square, a big number, two cards */
+const APP_AT = (y) => `<rect x="13" y="${y}" width="5" height="5" rx="1" class="app"/><rect x="21" y="${y + 1}" width="22" height="3" rx="1" class="dim"/><rect x="13" y="${y + 12}" width="30" height="3" rx="1" class="dim"/><rect x="13" y="${y + 18}" width="44" height="10" rx="2" class="big"/><rect x="13" y="${y + 34}" width="26" height="3" rx="1" class="dim"/><rect x="13" y="${y + 42}" width="52" height="16" rx="2" class="card"/><rect x="13" y="${y + 62}" width="52" height="16" rx="2" class="card"/>`;
+const HOME = `<g class="icons">${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<rect x="${13 + (i % 4) * 14}" y="${18 + Math.floor(i / 4) * 16}" width="10" height="10" rx="2" class="dim"/>`).join('')}</g><rect x="13" y="50" width="12" height="12" rx="3" class="app"/><path d="M15.5 53.5l2 6 1.5-4 1.5 4 2-6" class="appw"/><circle cx="19" cy="56" r="9" class="ring"/>`;
+/* a sheet of menu rows with one highlighted; glyph = 'share' | 'dots' | 'plus' */
+const SHEET = (top, hlIndex, glyph, apps) => {
+  const rows = []; let y = top + 8;
+  if (apps) { rows.push([0, 1, 2, 3].map(i => `<circle cx="${20 + i * 13.5}" cy="${y + 5}" r="5" class="dim"/>`).join('')); y += 16; }
+  for (let i = 0; i < 4; i++) {
+    const on = i === hlIndex, h = on ? 11 : 9;
+    let g = '';
+    if (on) {
+      if (glyph === 'share') g = `<path d="M20.5 ${y + 2.5}v5M18.5 ${y + 4.5}l2-2 2 2M17.5 ${y + 6}v3h6v-3" class="glyphl"/>`;
+      else if (glyph === 'dots') g = `<circle cx="18.5" cy="${y + 5.5}" r="1" class="glyphd"/><circle cx="21" cy="${y + 5.5}" r="1" class="glyphd"/><circle cx="23.5" cy="${y + 5.5}" r="1" class="glyphd"/>`;
+      else g = `<rect x="18" y="${y + 3}" width="5" height="5" class="glyph"/><path d="M20.5 ${y + 3.5}v4M18.5 ${y + 5.5}h4" class="glyphl"/>`;
+      rows.push(`<rect x="14" y="${y}" width="52" height="${h}" rx="2" class="hl"/>${g}<rect x="27" y="${y + 4}" width="32" height="3" rx="1" class="glyphbar"/>`);
+    } else rows.push(`<rect x="14" y="${y}" width="52" height="${h}" rx="2" class="dim"/>`);
+    y += h + 4;
+  }
+  return `<rect x="9" y="12" width="62" height="126" rx="4" class="dimfill"/><rect x="9" y="${top}" width="62" height="${138 - top}" rx="6" class="sheet"/>${rows.join('')}`;
+};
 const HELP_ART = {
   ios: [
-    PHONE(`<rect x="13" y="16" width="5" height="5" rx="1" class="app"/><rect x="21" y="17" width="22" height="3" rx="1" class="dim"/><rect x="13" y="28" width="30" height="3" rx="1" class="dim"/><rect x="13" y="34" width="44" height="10" rx="2" class="big"/><rect x="13" y="50" width="26" height="3" rx="1" class="dim"/><rect x="13" y="58" width="52" height="16" rx="2" class="card"/><rect x="13" y="78" width="52" height="16" rx="2" class="card"/><rect x="9" y="120" width="62" height="18" class="bar"/><circle cx="20" cy="129" r="3" class="dim"/><circle cx="60" cy="129" r="3" class="dim"/><circle cx="40" cy="129" r="8" class="ring"/><path d="M40 123v9M37 126l3-3 3 3M35 129v4h10v-4" class="glyph"/>`),
-    PHONE(`<rect x="9" y="12" width="62" height="60" rx="4" class="dimfill"/><rect x="9" y="70" width="62" height="68" rx="6" class="sheet"/><rect x="14" y="78" width="52" height="9" rx="2" class="dim"/><rect x="14" y="91" width="52" height="9" rx="2" class="dim"/><rect x="14" y="104" width="52" height="11" rx="2" class="hl"/><rect x="18" y="107" width="5" height="5" class="glyph"/><path d="M20.5 107.5v4M18.5 109.5h4" class="glyphl"/><rect x="26" y="108" width="34" height="3" rx="1" class="glyphbar"/><rect x="14" y="119" width="52" height="9" rx="2" class="dim"/>`),
-    PHONE(`<g class="icons">${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<rect x="${13 + (i % 4) * 14}" y="${18 + Math.floor(i / 4) * 16}" width="10" height="10" rx="2" class="dim"/>`).join('')}</g><rect x="13" y="50" width="12" height="12" rx="3" class="app"/><path d="M15.5 53.5l2 6 1.5-4 1.5 4 2-6" class="appw"/><circle cx="19" cy="56" r="9" class="ring"/>`),
+    /* 1: the three dots at the bottom right of Safari */
+    PHONE(`${APP_AT(16)}<rect x="9" y="118" width="62" height="20" class="bar"/><rect x="14" y="124" width="36" height="8" rx="4" class="dim"/><circle cx="62" cy="128" r="6" class="ring"/><circle cx="59.5" cy="128" r="1" class="glyphd"/><circle cx="62" cy="128" r="1" class="glyphd"/><circle cx="64.5" cy="128" r="1" class="glyphd"/>`),
+    /* 2: Share in that menu */
+    PHONE(SHEET(70, 1, 'share', false)),
+    /* 3: View more in the share sheet */
+    PHONE(SHEET(56, 3, 'dots', true)),
+    /* 4: Add to Home Screen */
+    PHONE(SHEET(56, 1, 'plus', false)),
   ],
   android: [
-    PHONE(`<rect x="9" y="12" width="62" height="14" class="bar"/><rect x="13" y="16" width="34" height="6" rx="3" class="dim"/><circle cx="62" cy="19" r="6" class="ring"/><circle cx="62" cy="16" r="1" class="glyph"/><circle cx="62" cy="19" r="1" class="glyph"/><circle cx="62" cy="22" r="1" class="glyph"/><rect x="13" y="30" width="5" height="5" rx="1" class="app"/><rect x="21" y="31" width="22" height="3" rx="1" class="dim"/><rect x="13" y="42" width="30" height="3" rx="1" class="dim"/><rect x="13" y="48" width="44" height="10" rx="2" class="big"/><rect x="13" y="64" width="26" height="3" rx="1" class="dim"/><rect x="13" y="72" width="52" height="16" rx="2" class="card"/><rect x="13" y="92" width="52" height="16" rx="2" class="card"/>`),
+    PHONE(`<rect x="9" y="12" width="62" height="14" class="bar"/><rect x="13" y="16" width="34" height="6" rx="3" class="dim"/><circle cx="62" cy="19" r="6" class="ring"/><circle cx="62" cy="16" r="1" class="glyphd"/><circle cx="62" cy="19" r="1" class="glyphd"/><circle cx="62" cy="22" r="1" class="glyphd"/>${APP_AT(30)}`),
     PHONE(`<rect x="9" y="12" width="62" height="126" rx="4" class="dimfill"/><rect x="24" y="16" width="46" height="70" rx="3" class="sheet"/><rect x="28" y="21" width="38" height="7" rx="2" class="dim"/><rect x="28" y="32" width="38" height="7" rx="2" class="dim"/><rect x="28" y="43" width="38" height="7" rx="2" class="dim"/><rect x="28" y="54" width="38" height="9" rx="2" class="hl"/><rect x="31" y="56" width="5" height="5" class="glyph"/><path d="M33.5 56.5v4M31.5 58.5h4" class="glyphl"/><rect x="39" y="57" width="24" height="3" rx="1" class="glyphbar"/><rect x="28" y="67" width="38" height="7" rx="2" class="dim"/>`),
-    PHONE(`<g class="icons">${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<rect x="${13 + (i % 4) * 14}" y="${18 + Math.floor(i / 4) * 16}" width="10" height="10" rx="2" class="dim"/>`).join('')}</g><rect x="13" y="50" width="12" height="12" rx="3" class="app"/><path d="M15.5 53.5l2 6 1.5-4 1.5 4 2-6" class="appw"/><circle cx="19" cy="56" r="9" class="ring"/>`),
+    PHONE(HOME),
   ],
 };
 const HELP_STEPS = {
-  ios: ['Open the link in <b>Safari</b> and tap the <b>Share</b> button, the square with the arrow at the bottom.', 'Scroll the list and tap <b>Add to Home Screen</b>.', 'Tap <b>Add</b>. The icon lands on your home screen; open it from there from now on.'],
+  ios: ['Tap the <b>three dots</b> at the bottom right of Safari.', 'Tap <b>Share</b>.', 'Tap <b>View more</b>.', 'Tap <b>Add to Home Screen</b>, then <b>Add</b>. The icon lands on your home screen; open it from there from now on.'],
   android: ['Open the link in <b>Chrome</b> and tap the <b>three dots</b> menu at the top right.', 'Tap <b>Add to Home screen</b> (on some phones it says <b>Install app</b>).', 'Tap <b>Add</b>. The icon lands on your home screen; open it from there from now on.'],
 };
+/* Android Chrome offers a real install dialog; keep its prompt for the Install button */
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; const b = document.querySelector('[data-action="install"]'); if (b) b.style.display = ''; });
+window.addEventListener('appinstalled', () => { installPrompt = null; toast('Installed. Open Wall Street from your home screen from now on.'); });
 function helpHTML() {
   const steps = HELP_STEPS[helpOS], art = HELP_ART[helpOS];
   return `<div class="mform help-box"><h3>Put it on your home screen</h3>
     ${IS_STANDALONE ? `<p class="muted small intro"><span class="pos">You are already running it from the home screen.</span> These steps are for another phone.</p>` : `<p class="muted small intro">Then it opens full screen like an app, with its own icon.</p>`}
     <div class="seg help-os"><button type="button" class="${helpOS === 'ios' ? 'on' : ''}" data-action="help-os" data-os="ios">iPhone</button><button type="button" class="${helpOS === 'android' ? 'on' : ''}" data-action="help-os" data-os="android">Android</button></div>
-    <div class="help-steps">${steps.map((s, i) => `<div class="step">${art[i]}<div class="small"><b>${i + 1}.</b> ${s}</div></div>`).join('')}</div>
+    ${helpOS === 'android' && !IS_STANDALONE ? `<button type="button" class="btn btn-primary install" data-action="install" style="${installPrompt ? '' : 'display:none'}">Install with one tap</button>` : ''}
+    <div class="help-steps${steps.length === 4 ? ' four' : ''}">${steps.map((s, i) => `<div class="step">${art[i]}<div class="small"><b>${i + 1}.</b> ${s}</div></div>`).join('')}</div>
     <div class="help-share"><div class="label">Send it to a friend</div><div class="row"><input class="inp num" readonly value="${APP_URL}"><button type="button" class="btn" data-action="copy-link">Copy</button></div><p class="muted small">They get their own empty copy. Share the link, never your sync code: the code is what opens your numbers.</p></div>
     <div class="mactions"><span class="grow"></span><button type="button" class="btn btn-primary" data-close>Done</button></div></div>`;
 }
@@ -965,7 +996,7 @@ function openModal(html) {
   root.innerHTML = '<div class="modal-bg"></div><div class="modal">' + html + '</div>';
   root.classList.add('open');
   const first = root.querySelector('input:not([type=checkbox]):not([readonly]),select,textarea,button.btn-primary');
-  if (first) setTimeout(() => { first.focus(); if (first.select) first.select(); }, 0);
+  if (first) setTimeout(() => { first.focus({ preventScroll: true }); if (first.select) first.select(); }, 0);
 }
 function closeModal(result) {
   const root = $('#modalRoot');
@@ -1152,7 +1183,13 @@ const ordinal = n => (n % 10 === 1 && n !== 11) ? 'st' : (n % 10 === 2 && n !== 
    actions (data-action="...")
    ====================================================================== */
 const actions = {
-  help() { openModal(helpHTML()); },
+  help() { try { localStorage.setItem('ws.helpShown', '1'); } catch (e) {} openModal(helpHTML()); },
+  async install() {
+    const p = installPrompt; if (!p) return;
+    installPrompt = null; p.prompt();
+    const r = await p.userChoice.catch(() => null);
+    if (r && r.outcome === 'accepted') closeModal(); else installPrompt = p;
+  },
   'help-os'(el) { helpOS = el.dataset.os === 'android' ? 'android' : 'ios'; openModal(helpHTML()); },
   async 'copy-link'() {
     try { await navigator.clipboard.writeText(APP_URL); toast('Link copied'); }
@@ -1556,7 +1593,7 @@ function init() {
   });
   $('#modalRoot').addEventListener('click', e => {
     const act = e.target.closest('[data-action]');
-    if (act && ['set-theme', 'help-os', 'copy-link'].includes(act.dataset.action)) { actions[act.dataset.action](act); return; }
+    if (act && ['set-theme', 'help-os', 'copy-link', 'install'].includes(act.dataset.action)) { actions[act.dataset.action](act); return; }
     if (e.target.classList.contains('modal-bg') || e.target.closest('[data-close]')) closeModal();
     else if (e.target.closest('[data-ok]')) closeModal({ ok: true });
     else if (e.target.closest('[data-danger]')) closeModal({ ok: false, danger: true });
@@ -1564,6 +1601,9 @@ function init() {
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#modalRoot').classList.contains('open')) closeModal(); });
   $('#importFile').addEventListener('change', onImportFile);
   window.addEventListener('hashchange', syncHash);
+  /* the first time the app opens in a phone browser, show how to put it on the home screen */
+  let seen = false; try { seen = !!localStorage.getItem('ws.helpShown'); } catch (e) {}
+  if (IS_MOBILE && !IS_STANDALONE && !seen) setTimeout(() => { if (!$('#modalRoot').classList.contains('open')) actions.help(); }, 900);
   window.addEventListener('resize', debounce(drawChart, 120));
   /* another tab of the app saved: pick up its data instead of overwriting it later */
   window.addEventListener('storage', e => { if (e.key === STORE_KEY && !$('#modalRoot').classList.contains('open')) { S = load(); render(); } });

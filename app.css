@@ -914,6 +914,10 @@ input[type="date"].inp { min-width: 0; }
 .phone rect.glyph { fill: var(--accent-fg); stroke: none; }
 .phone circle.glyph { fill: var(--fg); stroke: none; }
 .phone .glyphbar { fill: var(--accent-fg); opacity: .9; }
+.phone .glyphd { fill: var(--accent-fg); }
+.help-steps.four { grid-template-columns: repeat(2, 1fr); }
+.help-steps.four .phone { max-width: 110px; }
+.help-box .install { width: 100%; margin: 0 0 14px; }
 .phone .app { fill: #a88cf6; }
 .phone .big { fill: var(--fg); opacity: .85; }
 .phone .card { fill: var(--bg-3); stroke: var(--line-2); stroke-width: .8; }
