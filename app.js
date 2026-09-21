@@ -42,7 +42,7 @@ const THEME_INFO = {
   dark:     { name: 'Dark ledger',  desc: 'The original. Quiet, purple, monospace.',                 color: '#0e0e12', sw: ['#0e0e12', '#a88cf6', '#63c78d'] },
   board:    { name: 'Board',        desc: 'Deed cards on green felt. Pass GO, collect.',             color: '#0f5f3f', sw: ['#0f5f3f', '#fbf6ea', '#d7263d'] },
   arcade:   { name: 'Arcade',       desc: 'Neon HUD. Brackets, glow, XP bars, your level.',         color: '#07080f', sw: ['#07080f', '#b388ff', '#7cf2ff'] },
-  pixel:    { name: 'Pixel Quest',  desc: '8-bit RPG. Chunky borders, gold coins, HP bars.',        color: '#1b1f3a', sw: ['#1b1f3a', '#ffcc33', '#f6f3e8'] },
+  tycoon:   { name: 'Tycoon',       desc: 'Glossy board-game HUD. Ribbons, gold coins, big green buttons.', color: '#1f8fe0', sw: ['#1f8fe0', '#ffc531', '#ff3d3d'], emblem: 'art/tycoon-shield.png' },
   comic:    { name: 'Comic Pop',    desc: 'Halftone, thick outlines, big shadows. Ka-ching.',       color: '#fff3c4', sw: ['#fff3c4', '#111111', '#ff3b6b'] },
   casino:   { name: 'Casino Night', desc: 'Black and gold, poker-chip tags, velvet glow.',          color: '#0b0b0d', sw: ['#0b0b0d', '#d4af37', '#3fd68c'] },
   passbook: { name: 'Passbook',     desc: 'Kraft paper, navy ink, typewriter numbers, stamps.',     color: '#e9dfcc', sw: ['#e9dfcc', '#1e2a44', '#b3342e'] },
@@ -52,7 +52,7 @@ const THEMES = Object.keys(THEME_INFO);
 const WORDS = {
   board:    { 'Main goal': 'Next property', 'Coming up': 'Chance & rent', 'Bills left': 'Rent due', 'Where it sits': 'Your deeds', 'Funded': 'Owned', 'Plan drift': 'Rebalance' },
   arcade:   { 'Net worth': 'Bankroll', 'Main goal': 'Main quest', 'Coming up': 'Incoming', 'Bills left': 'Debts due', 'Where it sits': 'Inventory', 'Funded': 'Unlocked', 'Plan drift': 'Loadout' },
-  pixel:    { 'Net worth': 'Gold', 'Main goal': 'Quest', 'Coming up': 'Next turn', 'Bills left': 'Upkeep', 'Where it sits': 'Inventory', 'Funded': 'Complete', 'Plan drift': 'Party balance' },
+  tycoon:   { 'Net worth': 'Cash', 'Main goal': 'Next landmark', 'Coming up': 'Up next', 'Bills left': 'Rent due', 'Where it sits': 'Your board', 'Funded': 'Built!', 'Plan drift': 'Rebalance' },
   comic:    { 'Main goal': 'The big one', 'Coming up': 'Up next!', 'Where it sits': 'The stash', 'Funded': 'Done!', 'Plan drift': 'Shuffle' },
   casino:   { 'Net worth': 'Chips', 'Main goal': 'Jackpot', 'Coming up': 'On the table', 'Bills left': 'House take', 'Where it sits': 'The vault', 'Funded': 'Cashed out', 'Plan drift': 'Reshuffle' },
   passbook: { 'Net worth': 'Balance', 'Main goal': 'Savings goal', 'Coming up': 'Due soon', 'Where it sits': 'Accounts', 'Funded': 'Complete', 'Plan drift': 'Allocation' },
@@ -62,7 +62,7 @@ const word = s => (WORDS[S.settings.theme] || {})[s] || s;
 const level = n => Math.floor(Math.max(0, n) / 2500) + 1;
 function looksHTML() {
   return `<div class="mform"><h3>Pick a look</h3><p class="muted small intro">Same app, same numbers. Only the outfit changes.</p>
-    <div class="looks">${THEMES.map(t => { const i = THEME_INFO[t]; return `<button type="button" class="look${t === S.settings.theme ? ' on' : ''}" data-action="set-theme" data-theme="${t}"><span class="sw">${i.sw.map(c => `<i style="background:${c}"></i>`).join('')}</span><span class="grow"><b>${esc(i.name)}</b><span class="muted small">${esc(i.desc)}</span></span></button>`; }).join('')}</div>
+    <div class="looks">${THEMES.map(t => { const i = THEME_INFO[t]; return `<button type="button" class="look${t === S.settings.theme ? ' on' : ''}" data-action="set-theme" data-theme="${t}">${i.emblem ? `<img class="emblem" src="${i.emblem}" alt="">` : `<span class="sw">${i.sw.map(c => `<i style="background:${c}"></i>`).join('')}</span>`}<span class="grow"><b>${esc(i.name)}</b><span class="muted small">${esc(i.desc)}</span></span></button>`; }).join('')}</div>
     <div class="mactions"><span class="grow"></span><button type="button" class="btn btn-primary" data-close>Done</button></div></div>`;
 }
 const ICONS = {
@@ -420,6 +420,7 @@ function render() {
   const tc = $('meta[name="theme-color"]');
   if (tc) tc.content = (THEME_INFO[S.settings.theme] || THEME_INFO.dark).color;
   renderNav();
+  $('#main').dataset.view = view;
   $('#main').innerHTML = (VIEW_FN[view] || vOverview)();
   afterRender();
 }
@@ -473,9 +474,9 @@ function vOverview() {
       ${W.inn ? `<div class="hero-note small muted">Expected in: <span class="num pos">+${money(W.inn, { cents: false })}</span>, not counted until it lands</div>` : ''}
     </div>
     <div class="hero-r">
-      <div class="stat"><div class="label">Assets</div><div class="num">${money(T.A, { cents: false })}</div></div>
+      <div class="stat"><div class="label">Assets</div><div class="num pos">${money(T.A, { cents: false })}</div></div>
       <div class="stat"><div class="label">Debt</div><div class="num${T.L ? ' neg' : ''}">${T.L ? MINUS : ''}${money(T.L, { cents: false })}</div></div>
-      <div class="stat"><div class="label">${word('Bills left')}</div><div class="num">${money(W.bills, { cents: false })}</div></div>
+      <div class="stat"><div class="label">${word('Bills left')}</div><div class="num${W.bills ? ' neg' : ''}">${W.bills ? MINUS : ''}${money(W.bills, { cents: false })}</div></div>
     </div>
   </header>
   ${mg ? mainGoalPanel(mg) : ''}
@@ -493,7 +494,7 @@ function vOverview() {
       <section class="panel">
         <div class="panel-head"><span class="label">${word('Coming up')}</span><span class="links"><a class="link" href="#bills">Bills</a><a class="link" href="#upcoming">Upcoming</a></span></div>
         ${up.length
-          ? `<ul class="list">${up.map(u => `<li><span class="num muted w-date">${fmtDate(u.date, { month: 'short', day: 'numeric' })}</span>${u.kind !== 'bill' ? `<span class="tag ${u.kind === 'in' ? 'pos-tag' : 'neg-tag'}">${u.kind === 'in' ? 'IN' : 'OUT'}</span>` : ''}<span class="grow">${esc(u.name)}</span>${u.days < 0 && u.kind === 'bill' ? '<span class="tag neg-tag">late</span>' : ''}<span class="num${u.kind === 'in' ? ' pos' : u.kind === 'out' ? ' neg' : ''}">${u.kind === 'in' ? '+' : u.kind === 'out' ? MINUS : ''}${money(u.amount)}</span></li>`).join('')}</ul>`
+          ? `<ul class="list">${up.map(u => `<li><span class="num muted w-date">${fmtDate(u.date, { month: 'short', day: 'numeric' })}</span>${u.kind !== 'bill' ? `<span class="tag ${u.kind === 'in' ? 'pos-tag' : 'neg-tag'}">${u.kind === 'in' ? 'IN' : 'OUT'}</span>` : ''}<span class="grow">${esc(u.name)}</span>${u.days < 0 && u.kind === 'bill' ? '<span class="tag neg-tag">late</span>' : ''}<span class="num ${u.kind === 'in' ? 'pos' : 'neg'}">${u.kind === 'in' ? '+' : MINUS}${money(u.amount)}</span></li>`).join('')}</ul>`
           : `<p class="empty">${S.bills.length || S.upcoming.length ? 'Nothing in the next 30 days.' : 'No bills or upcoming items yet.'}</p>`}
       </section>
       <section class="panel">
@@ -560,8 +561,8 @@ function accountGroups() {
     if (!list.length) return '';
     const t = sum(list, a => a.balance), debt = g === 'debt';
     return `<div class="group">
-      <div class="group-head"><span>${GROUPS[g]}</span><span class="num${debt ? ' neg' : ''}">${debt ? MINUS : ''}${money(t, { cents: false })}</span></div>
-      ${list.map(a => `<div class="row acct-row" data-action="update-balance" data-id="${a.id}" title="Update balance"><span class="tag">${typeOf(a).tag}</span><span class="grow">${esc(a.name)}${a.inst ? `<span class="muted"> ${DOT} ${esc(a.inst)}</span>` : ''}</span><span class="num">${money(a.balance)}</span></div>`).join('')}
+      <div class="group-head"><span>${GROUPS[g]}</span><span class="num ${debt ? 'neg' : 'pos'}">${debt ? MINUS : ''}${money(t, { cents: false })}</span></div>
+      ${list.map(a => `<div class="row acct-row" data-action="update-balance" data-id="${a.id}" title="Update balance"><span class="tag">${typeOf(a).tag}</span><span class="grow">${esc(a.name)}${a.inst ? `<span class="muted"> ${DOT} ${esc(a.inst)}</span>` : ''}</span><span class="num ${debt ? 'neg' : 'pos'}">${debt ? MINUS : ''}${money(a.balance)}</span></div>`).join('')}
     </div>`;
   }).join('');
 }
@@ -576,17 +577,17 @@ function vAccounts() {
     const list = S.accounts.filter(a => typeOf(a).side === side).sort(byGroup);
     if (!list.length) return '';
     const debt = side === 'liability';
-    return `<section class="panel"><div class="panel-head"><span class="label">${debt ? 'Debt' : 'Assets'}</span><span class="num${debt ? ' neg' : ''}">${debt ? MINUS : ''}${money(sum(list, a => a.balance))}</span></div>
+    return `<section class="panel"><div class="panel-head"><span class="label">${debt ? 'Debt' : 'Assets'}</span><span class="num ${debt ? 'neg' : 'pos'}">${debt ? MINUS : ''}${money(sum(list, a => a.balance))}</span></div>
     ${list.map(a => { const em = earmarked(a.id); return `<div class="rrow">
       <span class="tag">${typeOf(a).tag}</span>
       <div class="what"><div class="strong">${esc(a.name)}</div><div class="sub">${typeOf(a).label}${a.inst ? ` ${DOT} ${esc(a.inst)}` : ''}${a.updatedAt ? ` ${DOT} updated ${fmtDate(a.updatedAt, { month: 'short', day: 'numeric' })}` : ''}</div></div>
-      <div class="amt"><div class="num">${money(a.balance)}</div>${em ? `<div class="muted small">${money(em, { cents: false })} earmarked</div>` : ''}</div>
+      <div class="amt"><div class="num ${debt ? 'neg' : 'pos'}">${debt ? MINUS : ''}${money(a.balance)}</div>${em ? `<div class="muted small">${money(em, { cents: false })} earmarked</div>` : ''}</div>
       <div class="acts"><button class="btn btn-sm" data-action="update-balance" data-id="${a.id}">Update</button><button class="btn btn-sm btn-ghost" data-action="edit-account" data-id="${a.id}">Edit</button></div>
     </div>`; }).join('')}
     </section>`;
   };
   return head + `<div class="summary-row">
-      <div class="stat"><div class="label">Assets</div><div class="num big">${money(T.A, { cents: false })}</div></div>
+      <div class="stat"><div class="label">Assets</div><div class="num big pos">${money(T.A, { cents: false })}</div></div>
       <div class="stat"><div class="label">Debt</div><div class="num big${T.L ? ' neg' : ''}">${T.L ? MINUS : ''}${money(T.L, { cents: false })}</div></div>
       <div class="stat"><div class="label">Net worth</div><div class="num big">${money(T.N, { cents: false })}</div></div>
     </div>` + block('asset') + block('liability');
@@ -623,7 +624,7 @@ function vPlan() {
       <div class="panel-head"><span class="label">New money each month</span></div>
       <div class="income-row"><label class="label" for="income">Monthly take-home</label><div class="inp-money"><span>$</span><input id="income" class="inp num" type="text" inputmode="decimal" value="${income ? income : ''}" placeholder="0" data-action="set-income"></div></div>
       ${income > 0
-        ? `<div class="kv"><span class="muted">Bills</span><span class="num">${MINUS}${money(billsTotal, { cents: false })}</span></div><div class="kv strong"><span>Free to allocate</span><span class="num${free < 0 ? ' neg' : ''}">${money(free, { cents: false })}</span></div>
+        ? `<div class="kv"><span class="muted">Bills</span><span class="num neg">${MINUS}${money(billsTotal, { cents: false })}</span></div><div class="kv strong"><span>Free to allocate</span><span class="num ${free < 0 ? 'neg' : 'pos'}">${money(free, { cents: false })}</span></div>
            ${free > 0
              ? `<ul class="list">${P.rows.map(r => `<li><span class="grow">${esc(r.b.name)}</span><span class="muted small">${pctStr(r.b.pct)}</span><span class="num w-amt">${money(free * r.b.pct / 100, { cents: false })}</span></li>`).join('')}</ul>`
              : `<p class="empty">Bills exceed income.</p>`}`
@@ -671,9 +672,9 @@ function vBills() {
   if (!S.bills.length) return head + `<section class="panel"><p class="empty">No bills yet. Rent, car payment, credit card, phone, subscriptions: anything that recurs monthly.</p></section>`;
   const sorted = S.bills.slice().sort((a, b) => a.day - b.day);
   return head + `<div class="summary-row">
-      <div class="stat"><div class="label">Monthly total</div><div class="num big">${money(total, { cents: false })}</div></div>
-      <div class="stat"><div class="label">Paid in ${fmtDate(todayStr(), { month: 'long' })}</div><div class="num big">${money(paidAmt, { cents: false })}</div></div>
-      <div class="stat"><div class="label">Remaining</div><div class="num big">${money(Math.max(0, total - paidAmt), { cents: false })}</div></div>
+      <div class="stat"><div class="label">Monthly total</div><div class="num big neg">${MINUS}${money(total, { cents: false })}</div></div>
+      <div class="stat"><div class="label">Paid in ${fmtDate(todayStr(), { month: 'long' })}</div><div class="num big${paidAmt ? ' neg' : ''}">${paidAmt ? MINUS : ''}${money(paidAmt, { cents: false })}</div></div>
+      <div class="stat"><div class="label">Remaining</div><div class="num big${total - paidAmt > 0 ? ' neg' : ''}">${total - paidAmt > 0 ? MINUS : ''}${money(Math.max(0, total - paidAmt), { cents: false })}</div></div>
     </div>
   <section class="panel"><div class="panel-head"><span class="label">This month</span><span class="muted small">in due-date order</span></div>
   ${sorted.map(b => {
@@ -683,7 +684,7 @@ function vBills() {
       : `<span>${st.days === 0 ? 'Due today' : 'Due ' + fmtDate(st.due, { month: 'short', day: 'numeric' })}</span>${st.days > 0 ? ` <span class="muted">${relDays(st.days)}</span>` : ''}`;
     return `<div class="rrow${st.state === 'paid' ? ' dim' : ''}">
       <div class="what"><div class="strong">${esc(b.name)}</div><div class="sub">Day ${b.day} ${DOT} ${from ? 'from ' + esc(from.name) : '<span class="warn">no account</span>'}${to ? ` ${DOT} pays down ${esc(to.name)}` : ''}</div></div>
-      <div class="amt"><div class="num">${money(st.state === 'paid' ? st.amount : b.amount)}</div><div class="small">${status}</div></div>
+      <div class="amt"><div class="num neg">${MINUS}${money(st.state === 'paid' ? st.amount : b.amount)}</div><div class="small">${status}</div></div>
       <div class="acts">${st.state === 'paid'
         ? `<button class="btn btn-sm btn-ghost" data-action="unpay-bill" data-id="${b.id}">Undo</button>`
         : `<button class="btn btn-sm btn-primary" data-action="pay-bill" data-id="${b.id}">Pay</button>`}<button class="btn btn-sm btn-ghost" data-action="edit-bill" data-id="${b.id}">Edit</button></div>
@@ -770,7 +771,7 @@ function vHistory() {
     <div class="panel-head"><span class="label">Snapshots</span><span class="muted small">${S.snapshots.length} day${S.snapshots.length === 1 ? '' : 's'} recorded</span></div>
     ${S.snapshots.length
       ? `<table class="tbl compact"><thead><tr><th>Date</th><th class="r hide-sm">Assets</th><th class="r hide-sm">Debt</th><th class="r">Net worth</th></tr></thead><tbody>
-         ${S.snapshots.slice().reverse().slice(0, 30).map(s => `<tr><td class="muted">${fmtDate(s.date)}</td><td class="r num hide-sm">${money(s.assets, { cents: false })}</td><td class="r num hide-sm">${money(s.liabilities, { cents: false })}</td><td class="r num strong">${money(snapVal(s), { cents: false })}</td></tr>`).join('')}
+         ${S.snapshots.slice().reverse().slice(0, 30).map(s => `<tr><td class="muted">${fmtDate(s.date)}</td><td class="r num pos hide-sm">${money(s.assets, { cents: false })}</td><td class="r num neg hide-sm">${s.liabilities ? MINUS : ''}${money(s.liabilities, { cents: false })}</td><td class="r num strong">${money(snapVal(s), { cents: false })}</td></tr>`).join('')}
          </tbody></table>`
       : `<p class="empty">No snapshots yet.</p>`}
   </section>
