@@ -143,12 +143,13 @@ const KIND_TAG = { update: 'SET', transfer: 'XFER', payment: 'PAID', income: 'IN
 const fresh = () => ({
   version: 1,
   settings: { theme: 'dark', income: 0, lastBackup: null, mainGoalId: null, view: 'now' },
-  accounts: [], snapshots: [], txns: [], goals: [], buckets: [], bills: [], upcoming: [],
+  accounts: [], snapshots: [], txns: [], goals: [], buckets: [], bills: [], upcoming: [], ticks: [],
 });
 /* if saved data cannot be read, the app must never write an empty ledger over it, here or in the cloud */
 let loadFailed = false;
 let S = load();
-let view = 'overview', chartRange = 'all', histFilter = 'all', shownNet = null, modalResolve = null;
+let view = 'overview', histFilter = 'all', shownNet = null, modalResolve = null;
+let chartRange = '1m'; try { chartRange = localStorage.getItem('ws.range') || '1m'; } catch (e) {}
 
 function load() {
   let raw = null;
@@ -174,7 +175,7 @@ function hydrate(d) {
   const out = Object.assign(base, d);
   out.settings = Object.assign(fresh().settings, d.settings || {});
   if (!THEMES.includes(out.settings.theme)) out.settings.theme = 'dark';
-  for (const k of ['accounts', 'snapshots', 'txns', 'goals', 'buckets', 'bills', 'upcoming']) if (!Array.isArray(out[k])) out[k] = [];
+  for (const k of ['accounts', 'snapshots', 'txns', 'goals', 'buckets', 'bills', 'upcoming', 'ticks']) if (!Array.isArray(out[k])) out[k] = [];
   out.buckets.forEach(b => { if (!Array.isArray(b.accountIds)) b.accountIds = []; });
   out.bills.forEach(b => { if (!b.paid || typeof b.paid !== 'object') b.paid = {}; if (!['month', 'week', '2weeks', 'year'].includes(b.every)) b.every = 'month'; });
   out.goals.forEach(g => { if (g.kind !== 'net') g.kind = 'manual'; if (typeof g.saved !== 'number') g.saved = 0; });
@@ -341,10 +342,15 @@ function totals() {
 function snapshot() {
   const T = totals(), date = todayStr();
   /* net = assets minus debt; after = the same with this month's withdrawals (unpaid bills, planned expenses) taken out */
-  const snap = { date, assets: T.A, liabilities: T.L, net: T.N, after: T.N - withdrawals().total };
+  const after = T.N - withdrawals().total;
+  const snap = { date, assets: T.A, liabilities: T.L, net: T.N, after };
   const i = S.snapshots.findIndex(s => s.date === date);
   if (i >= 0) S.snapshots[i] = snap; else S.snapshots.push(snap);
   S.snapshots.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  /* the intraday line: one tick per change (opening the app with nothing changed adds none) */
+  if (!Array.isArray(S.ticks)) S.ticks = [];
+  const last = S.ticks[S.ticks.length - 1];
+  if (!last || last.net !== T.N || last.after !== after) { S.ticks.push({ t: nowISO(), net: T.N, after }); if (S.ticks.length > 3000) S.ticks.splice(0, S.ticks.length - 3000); }
 }
 function txn(t) {
   S.txns.unshift({ id: t.id || uid(), date: nowISO(), kind: t.kind, amount: +t.amount || 0, from: t.from || null, to: t.to || null, desc: t.desc || '', note: t.note || '' });
@@ -359,6 +365,45 @@ function applyIn(a, amt)  { a.balance += isAsset(a) ? amt : -amt; a.updatedAt = 
 
 /* the value a snapshot charts, following the chosen view; older snapshots only carry plain net */
 const snapVal = s => (viewAfter() && s.after != null ? s.after : s.net);
+/* ---------- net worth over time ---------- */
+const RANGES = [['1d', '1D', 'Today'], ['1w', '1W', 'Past week'], ['1m', '1M', 'Past month'], ['3m', '3M', 'Past 3 months'], ['ytd', 'YTD', 'This year'], ['1y', '1Y', 'Past year'], ['all', 'ALL', 'All time']];
+const rangeLabel = r => (RANGES.find(x => x[0] === r) || RANGES[2])[2];
+function rangeStart(r) {
+  const now = new Date();
+  switch (r) {
+    case '1d': return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    case '1w': return Date.now() - 7 * 864e5;
+    case '1m': return Date.now() - 30 * 864e5;
+    case '3m': return Date.now() - 91 * 864e5;
+    case 'ytd': return new Date(now.getFullYear(), 0, 1).getTime();
+    case '1y': return Date.now() - 365 * 864e5;
+    default: return 0;
+  }
+}
+/* the whole line, oldest first: a tick for every change, the daily snapshots for days before ticks existed, and right now */
+function netSeries() {
+  const tv = t => (viewAfter() && t.after != null ? t.after : t.net);
+  const pts = (S.ticks || []).map(t => ({ t: new Date(t.t).getTime(), v: tv(t) })).filter(p => !isNaN(p.t) && isFinite(p.v));
+  const tickDays = new Set((S.ticks || []).map(t => String(t.t).slice(0, 10)));
+  for (const sn of S.snapshots) if (!tickDays.has(sn.date)) pts.push({ t: parseISO(sn.date).getTime() + 12 * 36e5, v: snapVal(sn) });
+  pts.sort((a, b) => a.t - b.t);
+  pts.push({ t: Date.now(), v: netShown() });
+  return pts;
+}
+/* the part of the line inside a range, starting from where the line stood when the range began */
+function rangeSeries(r) {
+  const all = netSeries(), start = rangeStart(r);
+  if (!start) return all.length > 1 ? all : [{ t: all[0].t - 864e5, v: all[0].v }].concat(all);
+  const before = all.filter(p => p.t < start), inside = all.filter(p => p.t >= start);
+  const first = before.length ? before[before.length - 1].v : inside[0].v;
+  return [{ t: start, v: first }].concat(inside);
+}
+/* the change line under the big number: amount, percent, and what span it covers */
+function deltaHTML(from, to, label) {
+  const amt = to - from, pct = from ? amt / Math.abs(from) * 100 : 0;
+  const cls = amt > 0 ? 'pos' : amt < 0 ? 'neg' : 'muted';
+  return `<span class="${cls} num">${amt > 0 ? UP : amt < 0 ? DOWN : ''} ${money(Math.abs(amt), { cents: false })} (${pctStr(Math.abs(pct), 2)})</span> <span class="muted">${label}</span>`;
+}
 function netDelta(days) {
   const snaps = S.snapshots;
   if (snaps.length < 2) return null;
@@ -564,40 +609,39 @@ function countUp(el, to) {
 /* ---------- overview ---------- */
 function vOverview() {
   if (!S.accounts.length) return vWelcome();
-  const T = totals(), d = netDelta(30);
+  const T = totals();
   const up = upNext(30).slice(0, 7), W = withdrawals(), after = viewAfter(), NW = netShown(), mg = mainGoal();
   const parts = [W.bills ? `<span class="num neg">${MINUS}${money(W.bills, { cents: false })}</span> bills` : '', W.out ? `<span class="num neg">${MINUS}${money(W.out, { cents: false })}</span> planned` : ''].filter(Boolean).join(' ' + DOT + ' ');
   const P = planRows();
   const drift = P.rows.filter(r => Math.abs(r.diff) > 1).sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff)).slice(0, 4);
-  const deltaHtml = d
-    ? `<span class="${d.amt >= 0 ? 'pos' : 'neg'} num">${d.amt >= 0 ? UP : DOWN} ${money(Math.abs(d.amt), { cents: false })} ${DOT} ${pctStr(Math.abs(d.pct), 1)}</span> <span class="muted">since ${fmtDate(d.since, { month: 'short', day: 'numeric' })}</span>`
-    : `<span class="muted">No movement recorded yet. Update a balance on another day and this fills in.</span>`;
+  const pts = rangeSeries(chartRange), first = pts[0].v, lastV = pts[pts.length - 1].v;
   return `
-  <header class="hero">
-    <div>
+  <header class="hero${lastV >= first ? ' up' : ' down'}">
+    <div class="hero-l">
       <div class="hero-top">
         <span class="label">${word('Net worth')}${after ? ` <span class="muted">${DOT} after withdrawals</span>` : ''} <span class="lvl">${word('LVL')} ${level(NW)}</span></span>
         <div class="seg"><button class="${after ? '' : 'on'}" data-action="view" data-view="now">As is</button><button class="${after ? 'on' : ''}" data-action="view" data-view="after">After withdrawals</button></div>
       </div>
-      <div class="hero-num num" data-count="${NW}">${money(NW, { cents: false })}</div>
-      <div class="hero-delta">${deltaHtml}</div>
-      ${W.total > 0
-        ? `<div class="hero-note small muted">${after ? `<span class="num">${money(T.N, { cents: false })}</span> before withdrawals ${DOT} ` : 'Still to come out this month: '}${parts}</div>`
-        : `<div class="hero-note small muted">Nothing left to come out this month.</div>`}
-      ${W.inn ? `<div class="hero-note small muted">Expected in: <span class="num pos">+${money(W.inn, { cents: false })}</span>, not counted until it lands</div>` : ''}
+      <div class="hero-num num" id="heroNum" data-count="${NW}">${money(NW, { cents: false })}</div>
+      <div class="hero-delta" id="heroDelta">${deltaHTML(first, lastV, rangeLabel(chartRange))}</div>
     </div>
     <div class="hero-r">
       <div class="stat"><div class="label">Assets</div><div class="num pos">${money(T.A, { cents: false })}</div></div>
       <div class="stat"><div class="label">Debt</div><div class="num${T.L ? ' neg' : ''}">${T.L ? MINUS : ''}${money(T.L, { cents: false })}</div></div>
       <div class="stat"><div class="label">${word('Bills left')}</div><div class="num${W.bills ? ' neg' : ''}">${W.bills ? MINUS : ''}${money(W.bills, { cents: false })}</div></div>
     </div>
+    <div class="hero-chart">
+      <div class="chart-wrap" id="chart"></div>
+      <div class="ranges"><span class="live"><i></i>LIVE</span>${RANGES.map(r => `<button class="${chartRange === r[0] ? 'on' : ''}" data-action="range" data-range="${r[0]}">${r[1]}</button>`).join('')}</div>
+    </div>
+    <div class="hero-notes">
+      ${W.total > 0
+        ? `<div class="hero-note small muted">${after ? `<span class="num">${money(T.N, { cents: false })}</span> before withdrawals ${DOT} ` : 'Still to come out this month: '}${parts}</div>`
+        : `<div class="hero-note small muted">Nothing left to come out this month.</div>`}
+      ${W.inn ? `<div class="hero-note small muted">Expected in: <span class="num pos">+${money(W.inn, { cents: false })}</span>, not counted until it lands</div>` : ''}
+    </div>
   </header>
   ${mg ? mainGoalPanel(mg) : ''}
-  <section class="panel">
-    <div class="panel-head"><span class="label">Net worth over time${after ? ` ${DOT} after withdrawals` : ''}</span>
-      <div class="seg">${['1m', '3m', '1y', 'all'].map(r => `<button class="${chartRange === r ? 'on' : ''}" data-action="range" data-range="${r}">${r.toUpperCase()}</button>`).join('')}</div></div>
-    <div class="chart-wrap" id="chart"></div>
-  </section>
   <div class="grid-2">
     <section class="panel">
       <div class="panel-head"><span class="label">${word('Where it sits')}</span><a class="link" href="#accounts">All accounts</a></div>
@@ -914,78 +958,57 @@ function vHistory() {
 function drawChart() {
   const wrap = $('#chart');
   if (!wrap) return;
-  const W = Math.max(320, wrap.clientWidth - 24) || 800;
+  const W = Math.max(280, wrap.clientWidth) || 800;
   wrap.innerHTML = chartSVG(W);
-  bindChartHover(wrap, W);
-}
-function niceTicks(lo, hi, count) {
-  const raw = (hi - lo) / count, mag = Math.pow(10, Math.floor(Math.log10(raw)));
-  const norm = raw / mag, step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10) * mag;
-  const out = [];
-  for (let v = Math.floor(lo / step) * step; v <= hi + step * 0.5; v += step) out.push(Math.round(v * 100) / 100);
-  return out;
+  bindChartScrub(wrap, W);
 }
 function chartSVG(W) {
-  let snaps = S.snapshots;
-  const days = { '1m': 31, '3m': 92, '1y': 366 }[chartRange];
-  if (days) {
-    const cutoff = localISO(new Date(Date.now() - days * 864e5));
-    const before = snaps.filter(s => s.date < cutoff), after = snaps.filter(s => s.date >= cutoff);
-    snaps = before.length ? [before[before.length - 1]].concat(after) : after;
-  }
-  if (snaps.length < 2) return `<div class="chart-empty">${snaps.length ? 'One data point so far. The line appears once a balance changes on another day.' : 'No history in this range.'}</div>`;
-  const H = 220, PL = 60, PR = 16, PT = 16, PB = 28;
-  const xs = snaps.map(s => parseISO(s.date).getTime()), ys = snaps.map(snapVal);
-  const x0 = xs[0], x1 = xs[xs.length - 1];
-  let yMin = Math.min.apply(null, ys), yMax = Math.max.apply(null, ys);
-  if (yMax - yMin < 1) { yMin -= 100; yMax += 100; }
-  const padY = (yMax - yMin) * 0.12; yMin -= padY; yMax += padY;
-  const ticks = niceTicks(yMin, yMax, 4);
-  yMin = Math.min(yMin, ticks[0]); yMax = Math.max(yMax, ticks[ticks.length - 1]);
-  const X = t => PL + (x1 === x0 ? 0 : (t - x0) / (x1 - x0)) * (W - PL - PR);
-  const Y = v => PT + (1 - (v - yMin) / (yMax - yMin)) * (H - PT - PB);
-  const pts = snaps.map((s, i) => [+X(xs[i]).toFixed(1), +Y(ys[i]).toFixed(1), s.date, ys[i]]);
-  const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0] + ' ' + p[1]).join(' ');
-  const floor = (H - PB).toFixed(1);
-  const area = line + ' L' + pts[pts.length - 1][0] + ' ' + floor + ' L' + pts[0][0] + ' ' + floor + ' Z';
-  const grid = ticks.map(t => { const y = Y(t).toFixed(1); return `<line x1="${PL}" x2="${W - PR}" y1="${y}" y2="${y}" class="grid"/><text x="${PL - 8}" y="${(+y + 3.5).toFixed(1)}" class="tick" text-anchor="end">${compact(t)}</text>`; }).join('');
-  const n = pts.length, idx = Array.from(new Set([0, Math.floor((n - 1) / 3), Math.floor(2 * (n - 1) / 3), n - 1]));
-  const xl = idx.map(i => `<text x="${pts[i][0]}" y="${H - 8}" class="tick" text-anchor="${i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}">${fmtDate(pts[i][2], { month: 'short', day: 'numeric' })}</text>`).join('');
-  const last = pts[n - 1];
-  return `<svg viewBox="0 0 ${W} ${H}" class="chart" data-pts='${JSON.stringify(pts)}'>
-    <defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--chart)" stop-opacity=".22"/><stop offset="1" stop-color="var(--chart)" stop-opacity="0"/></linearGradient></defs>
-    ${grid}
-    <path d="${area}" fill="url(#fill)"/>
+  const pts = rangeSeries(chartRange), H = 190, PL = 2, PR = 12, PT = 12, PB = 12;
+  const x0 = pts[0].t, x1 = Math.max(pts[pts.length - 1].t, x0 + 1);
+  let yMin = Math.min.apply(null, pts.map(p => p.v)), yMax = Math.max.apply(null, pts.map(p => p.v));
+  if (yMax - yMin < 1) { const pad = Math.max(50, Math.abs(yMax) * 0.01); yMin -= pad; yMax += pad; }
+  const padY = (yMax - yMin) * 0.14; yMin -= padY; yMax += padY;
+  const X = t => PL + (t - x0) / (x1 - x0) * (W - PL - PR), Y = v => PT + (1 - (v - yMin) / (yMax - yMin)) * (H - PT - PB);
+  const P = pts.map(p => [+X(p.t).toFixed(1), +Y(p.v).toFixed(1), p.t, p.v]);
+  const line = P.map((p, i) => (i ? 'L' : 'M') + p[0] + ' ' + p[1]).join(' ');
+  const up = pts[pts.length - 1].v >= pts[0].v, base = Y(pts[0].v).toFixed(1), last = P[P.length - 1];
+  return `<svg viewBox="0 0 ${W} ${H}" class="chart ${up ? 'up' : 'down'}" data-pts='${JSON.stringify(P)}'>
+    <line class="base" x1="${PL}" x2="${W - PR}" y1="${base}" y2="${base}"/>
     <path d="${line}" class="line"/>
-    <circle cx="${last[0]}" cy="${last[1]}" r="3.5" class="dot"/>
-    <line class="cross" x1="0" x2="0" y1="${PT}" y2="${H - PB}" style="display:none"/>
-    <circle class="hover-dot" r="4" style="display:none"/>
-    ${xl}
-  </svg><div class="chart-tip" style="display:none"></div>`;
+    <circle cx="${last[0]}" cy="${last[1]}" r="4" class="pulse"/>
+    <circle cx="${last[0]}" cy="${last[1]}" r="4" class="dot"/>
+    <line class="cross" x1="0" x2="0" y1="${PT - 6}" y2="${H - PB + 6}" style="display:none"/>
+    <circle class="hover-dot" r="5" style="display:none"/>
+  </svg>`;
 }
-function bindChartHover(wrap, W) {
+/* drag a finger (or the mouse) across the line: the big number and the change line read that moment */
+function bindChartScrub(wrap, W) {
   const svg = wrap.querySelector('svg');
   if (!svg) return;
-  const pts = JSON.parse(svg.dataset.pts), tip = wrap.querySelector('.chart-tip');
-  const cross = svg.querySelector('.cross'), hd = svg.querySelector('.hover-dot');
+  const pts = JSON.parse(svg.dataset.pts), cross = svg.querySelector('.cross'), hd = svg.querySelector('.hover-dot');
+  const numEl = $('#heroNum'), deltaEl = $('#heroDelta');
+  const restNum = numEl ? numEl.textContent : '', restDelta = deltaEl ? deltaEl.innerHTML : '', first = pts[0][3];
+  const intraday = chartRange === '1d' || chartRange === '1w';
   const show = clientX => {
     const r = svg.getBoundingClientRect(), x = (clientX - r.left) / r.width * W;
     let best = pts[0];
     for (const p of pts) if (Math.abs(p[0] - x) < Math.abs(best[0] - x)) best = p;
     cross.setAttribute('x1', best[0]); cross.setAttribute('x2', best[0]); cross.style.display = '';
     hd.setAttribute('cx', best[0]); hd.setAttribute('cy', best[1]); hd.style.display = '';
-    tip.innerHTML = `<span class="muted">${fmtDate(best[2])}</span><b class="num">${money(best[3], { cents: false })}</b>`;
-    tip.style.display = '';
-    const px = best[0] / W * r.width;
-    tip.style.left = Math.min(r.width - tip.offsetWidth, Math.max(0, px - tip.offsetWidth / 2)) + 12 + 'px';
+    const when = new Date(best[2]), label = fmtDate(when, { month: 'short', day: 'numeric' }) + (intraday ? ' ' + fmtTime(when) : '');
+    if (numEl) numEl.textContent = money(best[3], { cents: false });
+    if (deltaEl) deltaEl.innerHTML = deltaHTML(first, best[3], label);
   };
-  const hide = () => { cross.style.display = 'none'; hd.style.display = 'none'; tip.style.display = 'none'; };
-  svg.addEventListener('mousemove', e => show(e.clientX));
-  svg.addEventListener('mouseleave', hide);
-  /* a finger works too: touch to read a point, lift to clear it after a moment */
-  svg.addEventListener('touchstart', e => show(e.touches[0].clientX), { passive: true });
-  svg.addEventListener('touchmove', e => show(e.touches[0].clientX), { passive: true });
-  svg.addEventListener('touchend', () => setTimeout(hide, 1500), { passive: true });
+  const hide = () => {
+    cross.style.display = 'none'; hd.style.display = 'none';
+    if (numEl) numEl.textContent = restNum;
+    if (deltaEl) deltaEl.innerHTML = restDelta;
+  };
+  let down = false;
+  svg.addEventListener('pointerdown', e => { down = true; show(e.clientX); });
+  svg.addEventListener('pointermove', e => { if (down || e.pointerType === 'mouse') show(e.clientX); });
+  const end = () => { down = false; hide(); };
+  svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end); svg.addEventListener('pointerleave', end);
 }
 
 /* ======================================================================
@@ -1202,7 +1225,7 @@ const actions = {
     openModal(looksHTML()); /* keep the picker open so looks can be compared */
   },
   view(el) { S.settings.view = el.dataset.view === 'after' ? 'after' : 'now'; save(); render(); },
-  range(el) { chartRange = el.dataset.range; render(); },
+  range(el) { chartRange = el.dataset.range; try { localStorage.setItem('ws.range', chartRange); } catch (e) {} render(); },
   'hist-filter'(el) { histFilter = el.dataset.k; render(); },
 
   /* accounts */
@@ -1550,6 +1573,18 @@ function loadDemo() {
     const goal = NW * (0.78 + 0.22 * d / 180);
     net += (goal - net) * 0.45 + (Math.random() - 0.5) * NW * 0.025;
     S.snapshots.push({ date: localISO(new Date(start + d * 864e5)), assets: net + T.L, liabilities: T.L, net, after: net });
+  }
+  /* the last week tick by tick, drifting toward today's number */
+  S.ticks = [];
+  const gap = T.N - NW; let v = net;
+  for (let day = 7; day >= 0; day--) {
+    const n = day === 0 ? 4 : 2 + Math.floor(Math.random() * 4);
+    for (let k = 0; k < n; k++) {
+      const goal = day === 0 && k === n - 1 ? NW : NW * (1 - 0.03 * day / 7);
+      v += (goal - v) * 0.5 + (Math.random() - 0.5) * NW * 0.006;
+      const at = new Date(Date.now() - day * 864e5); at.setHours(day === 0 ? Math.max(6, Math.round(at.getHours() * (k + 1) / (n + 1))) : 8 + k * 3, Math.floor(Math.random() * 60), 0, 0);
+      if (at.getTime() < Date.now()) S.ticks.push({ t: at.toISOString(), net: v + gap, after: v });
+    }
   }
   snapshot();
   txn({ kind: 'note', amount: 0, desc: 'Loaded example data' });
