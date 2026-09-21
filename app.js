@@ -44,7 +44,7 @@ const KIND_TAG = { update: 'SET', transfer: 'XFER', payment: 'PAID', income: 'IN
    ====================================================================== */
 const fresh = () => ({
   version: 1,
-  settings: { theme: 'dark', income: 0, lastBackup: null, mainGoalId: null },
+  settings: { theme: 'dark', income: 0, lastBackup: null, mainGoalId: null, view: 'now' },
   accounts: [], snapshots: [], txns: [], goals: [], buckets: [], bills: [], upcoming: [],
 });
 let S = load();
@@ -203,8 +203,8 @@ function totals() {
 
 function snapshot() {
   const T = totals(), date = todayStr();
-  /* net = assets minus debt; after = the same with this month's unpaid bills taken out, which is the number the app shows as net worth */
-  const snap = { date, assets: T.A, liabilities: T.L, net: T.N, after: T.N - billsLeft() };
+  /* net = assets minus debt; after = the same with this month's withdrawals (unpaid bills, planned expenses) taken out */
+  const snap = { date, assets: T.A, liabilities: T.L, net: T.N, after: T.N - withdrawals().total };
   const i = S.snapshots.findIndex(s => s.date === date);
   if (i >= 0) S.snapshots[i] = snap; else S.snapshots.push(snap);
   S.snapshots.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
@@ -220,8 +220,8 @@ function commit(msg) { snapshot(); save(); render(); if (msg) toast(msg); }
 function applyOut(a, amt) { a.balance += isAsset(a) ? -amt : amt; a.updatedAt = nowISO(); }
 function applyIn(a, amt)  { a.balance += isAsset(a) ? amt : -amt; a.updatedAt = nowISO(); }
 
-/* the value a snapshot charts: after-bills when recorded, plain net for older snapshots */
-const snapVal = s => (s.after != null ? s.after : s.net);
+/* the value a snapshot charts, following the chosen view; older snapshots only carry plain net */
+const snapVal = s => (viewAfter() && s.after != null ? s.after : s.net);
 function netDelta(days) {
   const snaps = S.snapshots;
   if (snaps.length < 2) return null;
@@ -236,7 +236,7 @@ function netDelta(days) {
 }
 
 /* goals. A manual goal tracks money set aside for it; a net goal tracks net worth itself and moves on its own. */
-const gsaved = g => (g.kind === 'net' ? Math.max(0, netAfterBills()) : g.saved);
+const gsaved = g => (g.kind === 'net' ? Math.max(0, netShown()) : g.saved);
 const gdone = g => gsaved(g) >= g.target;
 const goalPct = g => g.target > 0 ? Math.max(0, Math.min(100, gsaved(g) / g.target * 100)) : 0;
 function goalPace(g) {
@@ -282,8 +282,15 @@ function billsDue(days) {
 const billsMonthly = () => sum(S.bills, b => b.amount);
 const billsPaidThisMonth = () => { const key = ym(); return sum(S.bills.filter(b => b.paid && b.paid[key]), b => b.paid[key].amount); };
 const billsLeft = () => Math.max(0, billsMonthly() - billsPaidThisMonth());
-/* the headline number: assets minus debt, minus the bills still unpaid this month */
-const netAfterBills = () => totals().N - billsLeft();
+/* money that is still going to leave this month: bills not yet paid, plus planned one-time expenses.
+   The overview shows net worth as it is, or with these already taken out; the switch is remembered. */
+function withdrawals() {
+  const E = expected(), bills = billsLeft();
+  return { bills, out: E.out, inn: E.inn, total: bills + E.out };
+}
+const viewAfter = () => S.settings.view === 'after';
+/* the headline number in the chosen view */
+const netShown = () => totals().N - (viewAfter() ? withdrawals().total : 0);
 
 /* upcoming: one-time money in or out. Pending items do not touch balances; marking one done does. */
 const pending = () => S.upcoming.filter(u => !u.done);
@@ -292,11 +299,6 @@ function expected() {
   const p = pending();
   const inn = sum(p.filter(u => u.kind === 'in'), u => u.amount), out = sum(p.filter(u => u.kind !== 'in'), u => u.amount);
   return { inn, out, net: inn - out, count: p.length };
-}
-/* the headline number plus what is pending in Upcoming: planned one-time expenses out, expected one-time income in */
-function afterAll() {
-  const E = expected(), bills = billsLeft(), now = totals().N - bills;
-  return { bills, inn: E.inn, out: E.out, now, after: now - E.out + E.inn, any: E.count > 0 };
 }
 /* bills due plus dated one-time items, in date order, for the overview */
 function upNext(days) {
@@ -383,7 +385,8 @@ function countUp(el, to) {
 function vOverview() {
   if (!S.accounts.length) return vWelcome();
   const T = totals(), d = netDelta(30);
-  const up = upNext(30).slice(0, 7), AF = afterAll(), mg = mainGoal();
+  const up = upNext(30).slice(0, 7), W = withdrawals(), after = viewAfter(), NW = netShown(), mg = mainGoal();
+  const parts = [W.bills ? `<span class="num neg">${MINUS}${money(W.bills, { cents: false })}</span> bills` : '', W.out ? `<span class="num neg">${MINUS}${money(W.out, { cents: false })}</span> planned` : ''].filter(Boolean).join(' ' + DOT + ' ');
   const P = planRows();
   const drift = P.rows.filter(r => Math.abs(r.diff) > 1).sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff)).slice(0, 4);
   const deltaHtml = d
@@ -392,28 +395,26 @@ function vOverview() {
   return `
   <header class="hero">
     <div>
-      <div class="label">Net worth</div>
-      <div class="hero-num num" data-count="${AF.now}">${money(AF.now, { cents: false })}</div>
+      <div class="hero-top">
+        <span class="label">Net worth${after ? ` <span class="muted">${DOT} after withdrawals</span>` : ''}</span>
+        <div class="seg"><button class="${after ? '' : 'on'}" data-action="view" data-view="now">As is</button><button class="${after ? 'on' : ''}" data-action="view" data-view="after">After withdrawals</button></div>
+      </div>
+      <div class="hero-num num" data-count="${NW}">${money(NW, { cents: false })}</div>
       <div class="hero-delta">${deltaHtml}</div>
-      ${AF.bills ? `<div class="hero-note small muted"><span class="num">${money(T.N, { cents: false })}</span> before this month's bills ${DOT} <span class="num neg">${MINUS}${money(AF.bills, { cents: false })}</span> still to pay</div>` : ''}
-      ${AF.any ? `<div class="hero-next">
-        <div class="label">After what is coming</div>
-        <div class="hero-num2 num">${money(AF.after, { cents: false })}</div>
-        <div class="hero-breakdown small muted">
-          ${AF.inn ? `<span><span class="pos num">+${money(AF.inn, { cents: false })}</span> coming in</span>` : ''}
-          ${AF.out ? `<span><span class="neg num">${MINUS}${money(AF.out, { cents: false })}</span> going out</span>` : ''}
-        </div>
-      </div>` : ''}
+      ${W.total > 0
+        ? `<div class="hero-note small muted">${after ? `<span class="num">${money(T.N, { cents: false })}</span> before withdrawals ${DOT} ` : 'Still to come out this month: '}${parts}</div>`
+        : `<div class="hero-note small muted">Nothing left to come out this month.</div>`}
+      ${W.inn ? `<div class="hero-note small muted">Expected in: <span class="num pos">+${money(W.inn, { cents: false })}</span>, not counted until it lands</div>` : ''}
     </div>
     <div class="hero-r">
       <div class="stat"><div class="label">Assets</div><div class="num">${money(T.A, { cents: false })}</div></div>
       <div class="stat"><div class="label">Debt</div><div class="num${T.L ? ' neg' : ''}">${T.L ? MINUS : ''}${money(T.L, { cents: false })}</div></div>
-      <div class="stat"><div class="label">Bills left</div><div class="num">${money(AF.bills, { cents: false })}</div></div>
+      <div class="stat"><div class="label">Bills left</div><div class="num">${money(W.bills, { cents: false })}</div></div>
     </div>
   </header>
   ${mg ? mainGoalPanel(mg) : ''}
   <section class="panel">
-    <div class="panel-head"><span class="label">Net worth over time</span>
+    <div class="panel-head"><span class="label">Net worth over time${after ? ` ${DOT} after withdrawals` : ''}</span>
       <div class="seg">${['1m', '3m', '1y', 'all'].map(r => `<button class="${chartRange === r ? 'on' : ''}" data-action="range" data-range="${r}">${r.toUpperCase()}</button>`).join('')}</div></div>
     <div class="chart-wrap" id="chart"></div>
   </section>
@@ -943,6 +944,7 @@ const upcomingFields = (u, kind) => {
    ====================================================================== */
 const actions = {
   'toggle-theme'() { S.settings.theme = S.settings.theme === 'dark' ? 'light' : 'dark'; save(); render(); },
+  view(el) { S.settings.view = el.dataset.view === 'after' ? 'after' : 'now'; save(); render(); },
   range(el) { chartRange = el.dataset.range; render(); },
   'hist-filter'(el) { histFilter = el.dataset.k; render(); },
 
