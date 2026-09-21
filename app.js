@@ -37,6 +37,23 @@ const VIEWS = [
   { id: 'upcoming', label: 'Upcoming' },
   { id: 'history',  label: 'History' },
 ];
+/* looks: dark ledger, paper, and board (a friendly property-game table). The button shows the next one. */
+const THEMES = ['dark', 'board', 'light'];
+const THEME_NEXT = { dark: 'Board look', board: 'Paper look', light: 'Dark look' };
+const THEME_COLOR = { dark: '#0e0e12', light: '#f2f1f6', board: '#0f5f3f' };
+/* a few labels get game flavour in the board look; everything else keeps its wording */
+const WORDS = { board: { 'Main goal': 'Next property', 'Coming up': 'Chance & rent', 'Bills left': 'Rent due', 'Where it sits': 'Your deeds', 'Funded': 'Owned', 'Plan drift': 'Rebalance' } };
+const word = s => (WORDS[S.settings.theme] || {})[s] || s;
+const ICONS = {
+  overview: '<path d="M3 10.5 10 4l7 6.5V17h-5v-4H8v4H3z"/>',
+  accounts: '<path d="M3 8l7-4 7 4H3zM5 8v6M9 8v6M13 8v6M17 8v6M3 17h14"/>',
+  plan:     '<path d="M10 3a7 7 0 1 0 7 7h-7z"/><path d="M12 2a6 6 0 0 1 6 6h-6z"/>',
+  goals:    '<path d="M5 17V3M5 4h10l-2 3 2 3H5"/>',
+  bills:    '<path d="M5 3h10v14l-2-1.5L11 17l-2-1.5L7 17l-2-1.5zM7 7h6M7 10h6"/>',
+  upcoming: '<rect x="3" y="3" width="14" height="14" rx="3"/><circle cx="7" cy="7" r="1.3" fill="currentColor" stroke="none"/><circle cx="13" cy="13" r="1.3" fill="currentColor" stroke="none"/><circle cx="10" cy="10" r="1.3" fill="currentColor" stroke="none"/>',
+  history:  '<circle cx="10" cy="10" r="7"/><path d="M10 6v4l3 2"/>',
+};
+const icon = id => `<i class="ico"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">${ICONS[id] || ''}</svg></i>`;
 const KIND_TAG = { update: 'SET', transfer: 'XFER', payment: 'PAID', income: 'IN', expense: 'OUT', goal: 'GOAL', add: 'NEW', remove: 'DEL', reverse: 'UNDO', note: 'NOTE' };
 
 /* ======================================================================
@@ -65,6 +82,7 @@ function hydrate(d) {
   const base = fresh();
   const out = Object.assign(base, d);
   out.settings = Object.assign(fresh().settings, d.settings || {});
+  if (!THEMES.includes(out.settings.theme)) out.settings.theme = 'dark';
   for (const k of ['accounts', 'snapshots', 'txns', 'goals', 'buckets', 'bills', 'upcoming']) if (!Array.isArray(out[k])) out[k] = [];
   out.buckets.forEach(b => { if (!Array.isArray(b.accountIds)) b.accountIds = []; });
   out.bills.forEach(b => { if (!b.paid || typeof b.paid !== 'object') b.paid = {}; });
@@ -377,16 +395,16 @@ const VIEW_FN = { overview: vOverview, accounts: vAccounts, plan: vPlan, goals: 
 
 function render() {
   document.documentElement.dataset.theme = S.settings.theme;
-  $('#themeBtn').textContent = S.settings.theme === 'dark' ? 'Light mode' : 'Dark mode';
+  $('#themeBtn').textContent = THEME_NEXT[S.settings.theme] || 'Dark look';
   const tc = $('meta[name="theme-color"]');
-  if (tc) tc.content = S.settings.theme === 'dark' ? '#0e0e12' : '#f2f1f6';
+  if (tc) tc.content = THEME_COLOR[S.settings.theme] || THEME_COLOR.dark;
   renderNav();
   $('#main').innerHTML = (VIEW_FN[view] || vOverview)();
   afterRender();
 }
 function renderNav() {
   const counts = { accounts: S.accounts.length, goals: S.goals.length, bills: S.bills.length, plan: S.buckets.length, upcoming: pending().length };
-  $('#nav').innerHTML = VIEWS.map(v => '<a href="#' + v.id + '" class="nav-item' + (v.id === view ? ' on' : '') + '"><span>' + v.label + '</span>' + (counts[v.id] ? '<span class="nav-n num">' + counts[v.id] + '</span>' : '') + '</a>').join('');
+  $('#nav').innerHTML = VIEWS.map(v => '<a href="#' + v.id + '" class="nav-item' + (v.id === view ? ' on' : '') + '">' + icon(v.id) + '<span class="nav-label">' + v.label + '</span>' + (counts[v.id] ? '<span class="nav-n num">' + counts[v.id] + '</span>' : '') + '</a>').join('');
   const lb = S.settings.lastBackup;
   $('#sideStatus').innerHTML = esc(syncLine()) + '<br>' + (lb ? 'Backed up ' + fmtDate(lb, { month: 'short', day: 'numeric' }) : 'Never backed up');
 }
@@ -436,7 +454,7 @@ function vOverview() {
     <div class="hero-r">
       <div class="stat"><div class="label">Assets</div><div class="num">${money(T.A, { cents: false })}</div></div>
       <div class="stat"><div class="label">Debt</div><div class="num${T.L ? ' neg' : ''}">${T.L ? MINUS : ''}${money(T.L, { cents: false })}</div></div>
-      <div class="stat"><div class="label">Bills left</div><div class="num">${money(W.bills, { cents: false })}</div></div>
+      <div class="stat"><div class="label">${word('Bills left')}</div><div class="num">${money(W.bills, { cents: false })}</div></div>
     </div>
   </header>
   ${mg ? mainGoalPanel(mg) : ''}
@@ -447,12 +465,12 @@ function vOverview() {
   </section>
   <div class="grid-2">
     <section class="panel">
-      <div class="panel-head"><span class="label">Where it sits</span><a class="link" href="#accounts">All accounts</a></div>
+      <div class="panel-head"><span class="label">${word('Where it sits')}</span><a class="link" href="#accounts">All accounts</a></div>
       ${accountGroups()}
     </section>
     <div class="stack">
       <section class="panel">
-        <div class="panel-head"><span class="label">Coming up</span><span class="links"><a class="link" href="#bills">Bills</a><a class="link" href="#upcoming">Upcoming</a></span></div>
+        <div class="panel-head"><span class="label">${word('Coming up')}</span><span class="links"><a class="link" href="#bills">Bills</a><a class="link" href="#upcoming">Upcoming</a></span></div>
         ${up.length
           ? `<ul class="list">${up.map(u => `<li><span class="num muted w-date">${fmtDate(u.date, { month: 'short', day: 'numeric' })}</span>${u.kind !== 'bill' ? `<span class="tag ${u.kind === 'in' ? 'pos-tag' : 'neg-tag'}">${u.kind === 'in' ? 'IN' : 'OUT'}</span>` : ''}<span class="grow">${esc(u.name)}</span>${u.days < 0 && u.kind === 'bill' ? '<span class="tag neg-tag">late</span>' : ''}<span class="num${u.kind === 'in' ? ' pos' : u.kind === 'out' ? ' neg' : ''}">${u.kind === 'in' ? '+' : u.kind === 'out' ? MINUS : ''}${money(u.amount)}</span></li>`).join('')}</ul>`
           : `<p class="empty">${S.bills.length || S.upcoming.length ? 'Nothing in the next 30 days.' : 'No bills or upcoming items yet.'}</p>`}
@@ -464,7 +482,7 @@ function vOverview() {
           : `<p class="empty">No goals yet.</p>`}
       </section>
       <section class="panel">
-        <div class="panel-head"><span class="label">Plan drift</span><a class="link" href="#plan">Plan</a></div>
+        <div class="panel-head"><span class="label">${word('Plan drift')}</span><a class="link" href="#plan">Plan</a></div>
         ${drift.length
           ? `<ul class="list">${drift.map(r => `<li><span class="grow">${esc(r.b.name)}</span><span class="muted small">${r.diff > 0 ? 'over' : 'under'}</span><span class="num">${money(Math.abs(r.diff), { cents: false })}</span></li>`).join('')}</ul>`
           : `<p class="empty">${S.buckets.length ? 'On target.' : 'No plan set.'}</p>`}
@@ -475,7 +493,7 @@ function vOverview() {
 /* a segmented meter: 24 blocks, filled left to right, the partial block filled in proportion */
 function meterHTML(pct, done) {
   const n = 24, f = pct / 100 * n;
-  return `<div class="meter${done ? ' done' : ''}">${Array.from({ length: n }, (_, i) => `<i><b style="width:${Math.round(Math.max(0, Math.min(1, f - i)) * 100)}%"></b></i>`).join('')}</div>`;
+  return `<div class="meter${done ? ' done' : ''}">${Array.from({ length: n }, (_, i) => `<i><b style="width:${Math.round(Math.max(0, Math.min(1, f - i)) * 100)}%"></b></i>`).join('')}<s class="token" style="left:${Math.max(2, Math.min(98, pct)).toFixed(1)}%"></s></div>`;
 }
 function mainGoalPanel(g) {
   const net = g.kind === 'net', saved = gsaved(g), done = saved >= g.target, pct = goalPct(g), a = !net && g.accountId && acct(g.accountId), p = goalPace(g);
@@ -488,7 +506,7 @@ function mainGoalPanel(g) {
     : toGo;
   const trend = d ? `<div class="small"><span class="${d.amt >= 0 ? 'pos' : 'neg'} num">${d.amt >= 0 ? UP : DOWN} ${money(Math.abs(d.amt), { cents: false })}</span> <span class="muted">since ${fmtDate(d.since, { month: 'short', day: 'numeric' })}</span></div>` : '';
   return `<section class="panel">
-    <div class="panel-head"><span class="label">Main goal</span><span class="links">${S.goals.length > 1 ? '<a class="link" href="#goals">Change</a>' : ''}<a class="link" href="#goals">All goals</a></span></div>
+    <div class="panel-head"><span class="label">${word('Main goal')}</span><span class="links">${S.goals.length > 1 ? '<a class="link" href="#goals">Change</a>' : ''}<a class="link" href="#goals">All goals</a></span></div>
     <div class="mg">
       <div>
         <div class="mg-name">${esc(g.name)}</div>
@@ -615,7 +633,7 @@ function vGoals() {
   <div class="goal-grid">${sorted.map(g => {
     const net = g.kind === 'net', saved = gsaved(g), done = saved >= g.target, a = !net && g.accountId && acct(g.accountId), main = isMainGoal(g);
     return `<section class="panel goal${done ? ' done' : ''}">
-      <div class="row"><span class="strong grow">${esc(g.name)}</span>${main ? '<span class="tag">MAIN</span>' : ''}${done ? '<span class="tag pos-tag">Funded</span>' : ''}</div>
+      <div class="row"><span class="strong grow">${esc(g.name)}</span>${main ? '<span class="tag">MAIN</span>' : ''}${done ? `<span class="tag pos-tag">${word('Funded')}</span>` : ''}</div>
       <div class="goal-nums"><span class="num big">${money(saved, { cents: false })}</span><span class="muted num small">of ${money(g.target, { cents: false })}</span></div>
       <div class="bar"><i class="${done ? 'done' : ''}" style="width:${goalPct(g)}%"></i></div>
       <div class="row small muted"><span class="grow">${net ? 'Follows your net worth' : a ? 'Held in ' + esc(a.name) : 'Not linked to an account'}</span><span class="num">${pctStr(goalPct(g))}</span></div>
@@ -794,7 +812,7 @@ function chartSVG(W) {
   const xl = idx.map(i => `<text x="${pts[i][0]}" y="${H - 8}" class="tick" text-anchor="${i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}">${fmtDate(pts[i][2], { month: 'short', day: 'numeric' })}</text>`).join('');
   const last = pts[n - 1];
   return `<svg viewBox="0 0 ${W} ${H}" class="chart" data-pts='${JSON.stringify(pts)}'>
-    <defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".22"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+    <defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--chart)" stop-opacity=".22"/><stop offset="1" stop-color="var(--chart)" stop-opacity="0"/></linearGradient></defs>
     ${grid}
     <path d="${area}" fill="url(#fill)"/>
     <path d="${line}" class="line"/>
@@ -972,7 +990,7 @@ const upcomingFields = (u, kind) => {
    actions (data-action="...")
    ====================================================================== */
 const actions = {
-  'toggle-theme'() { S.settings.theme = S.settings.theme === 'dark' ? 'light' : 'dark'; save(); render(); },
+  'toggle-theme'() { S.settings.theme = THEMES[(THEMES.indexOf(S.settings.theme) + 1) % THEMES.length]; save(); render(); },
   view(el) { S.settings.view = el.dataset.view === 'after' ? 'after' : 'now'; save(); render(); },
   range(el) { chartRange = el.dataset.range; render(); },
   'hist-filter'(el) { histFilter = el.dataset.k; render(); },
