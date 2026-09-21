@@ -6,7 +6,9 @@ A personal finance ledger that lives on your machine or your phone. No accounts,
 
 Double-click `index.html`. That's it.
 
-On a phone: serve the folder from a computer on the same Wi-Fi, open it in the phone's browser, then use "Add to Home Screen" so it opens like an app.
+On a phone or any other device: open **https://boxandabird.github.io/wall-street/** and use "Add to Home Screen" so it opens like an app. Turn on Sync (below) to see the same numbers everywhere.
+
+Without internet, you can also serve the folder from a computer on the same Wi-Fi:
 
     python -m http.server 8765 --directory C:\Users\AZP\tally --bind 0.0.0.0
 
