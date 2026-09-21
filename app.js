@@ -680,9 +680,10 @@ function vBills() {
   <section class="panel"><div class="panel-head"><span class="label">This month</span><span class="muted small">in due-date order</span></div>
   ${sorted.map(b => {
     const st = billStatus(b), from = acct(b.from), to = acct(b.to);
-    const status = st.state === 'paid' ? `<span class="pos">Paid ${fmtDate(st.date, { month: 'short', day: 'numeric' })}</span>`
+    const today = parseISO(todayStr()), nextDue = billDue(b, new Date(today.getFullYear(), today.getMonth() + 1, 1));
+    const status = st.state === 'paid' ? `<span class="pos">Paid ${fmtDate(st.date, { month: 'short', day: 'numeric' })}</span> <span class="muted">${DOT} next ${fmtDate(nextDue, { month: 'short', day: 'numeric' })}</span>`
       : st.state === 'overdue' ? `<span class="neg">Overdue ${DOT} ${-st.days} day${st.days === -1 ? '' : 's'}</span>`
-      : `<span>${st.days === 0 ? 'Due today' : 'Due ' + fmtDate(st.due, { month: 'short', day: 'numeric' })}</span>${st.days > 0 ? ` <span class="muted">${relDays(st.days)}</span>` : ''}`;
+      : `<span class="warn">Pending</span> <span class="muted">${DOT} ${st.days === 0 ? 'due today' : 'due ' + fmtDate(st.due, { month: 'short', day: 'numeric' })}${st.days > 0 ? ', ' + relDays(st.days) : ''}</span>`;
     return `<div class="rrow${st.state === 'paid' ? ' dim' : ''}">
       <div class="what"><div class="strong">${esc(b.name)}</div><div class="sub">Day ${b.day} ${DOT} ${from ? 'from ' + esc(from.name) : '<span class="warn">no account</span>'}${to ? ` ${DOT} pays down ${esc(to.name)}` : ''}</div></div>
       <div class="amt"><div class="num neg">${MINUS}${money(st.state === 'paid' ? st.amount : b.amount)}</div><div class="small">${status}</div></div>
@@ -1032,9 +1033,21 @@ const upcomingFields = (u, kind) => {
     { key: 'amount', label: 'Amount', type: 'money', value: u.amount == null ? '' : u.amount.toFixed(2), required: true, half: true },
     { key: 'date', label: 'Expected', type: 'date', value: u.date || '', half: true, hint: 'Leave it blank if you are not sure yet.' },
     { key: 'accountId', label: 'Account', type: 'select', value: u.accountId || '', half: true, options: [{ v: '', l: 'Decide later' }].concat(S.accounts.map(a => ({ v: a.id, l: a.name }))), hint: 'Where it comes from or lands.' },
+    { key: 'repeat', label: 'Repeats', type: 'select', value: '', options: [{ v: '', l: 'One time only' }, { v: 'monthly', l: 'Every month on this day (becomes a bill)' }], hint: 'A car payment, rent, a subscription: pick monthly and it moves to Bills, where it comes back due each month.' },
     { key: 'note', label: 'Note', value: u.note, placeholder: 'optional' },
   ];
 };
+/* a one-time item that turns out to repeat becomes a bill on that day of the month */
+function upcomingToBill(v, u) {
+  const day = v.date ? parseISO(v.date).getDate() : parseISO(todayStr()).getDate();
+  const a = acct(v.accountId);
+  const b = { id: uid(), name: v.name, amount: Math.abs(v.amount), day: Math.min(31, Math.max(1, day)), from: a && isAsset(a) ? a.id : null, to: a && !isAsset(a) ? a.id : null, paid: {} };
+  S.bills.push(b);
+  if (u) S.upcoming = S.upcoming.filter(x => x !== u);
+  save(); render();
+  toast(b.name + ' is now a monthly bill, due on the ' + b.day + ordinal(b.day) + '. See Bills.');
+}
+const ordinal = n => (n % 10 === 1 && n !== 11) ? 'st' : (n % 10 === 2 && n !== 12) ? 'nd' : (n % 10 === 3 && n !== 13) ? 'rd' : 'th';
 
 /* ======================================================================
    actions (data-action="...")
@@ -1223,6 +1236,7 @@ const actions = {
     const kind = el.dataset.kind === 'in' ? 'in' : 'out';
     const r = await form({ title: kind === 'in' ? 'Money coming in' : 'Planned expense', fields: upcomingFields(null, kind), submit: 'Add' });
     if (!r.ok) return;
+    if (r.v.repeat === 'monthly' && r.v.kind !== 'in') { upcomingToBill(r.v, null); return; }
     const u = { id: uid(), name: r.v.name, kind: r.v.kind === 'in' ? 'in' : 'out', amount: Math.abs(r.v.amount), date: r.v.date, accountId: r.v.accountId || null, note: r.v.note, createdAt: nowISO(), done: null };
     S.upcoming.push(u); save(); render(); toast(u.name + ' added');
   },
@@ -1234,6 +1248,7 @@ const actions = {
     const r = await form({ title: u.done ? 'Edit' : 'Edit upcoming', intro: u.done ? 'Already ' + (u.kind === 'in' ? 'received' : 'paid') + '. Undo it first to change the amount or account.' : '', fields, danger: 'Delete' });
     if (r.danger) { S.upcoming = S.upcoming.filter(x => x !== u); save(); render(); toast(u.name + ' removed'); return; }
     if (!r.ok) return;
+    if (!u.done && r.v.repeat === 'monthly' && r.v.kind !== 'in') { upcomingToBill(r.v, u); return; }
     if (u.done) Object.assign(u, { name: r.v.name, note: r.v.note });
     else Object.assign(u, { name: r.v.name, kind: r.v.kind === 'in' ? 'in' : 'out', amount: Math.abs(r.v.amount), date: r.v.date, accountId: r.v.accountId || null, note: r.v.note });
     save(); render(); toast('Saved');
