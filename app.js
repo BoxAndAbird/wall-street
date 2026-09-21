@@ -775,7 +775,8 @@ function vHistory() {
       : `<p class="empty">No snapshots yet.</p>`}
   </section>
   <section class="panel">
-    <div class="panel-head"><span class="label">Data</span></div>
+    <div class="panel-head"><span class="label">Settings</span></div>
+    <div class="data-row"><div><div class="strong">Look</div><div class="muted small">Now: <b>${esc((THEME_INFO[S.settings.theme] || THEME_INFO.dark).name)}</b>. ${THEMES.length} to choose from; the choice follows you to every synced device.</div></div><div class="row acts"><button class="btn" data-action="toggle-theme">Choose a look</button></div></div>
     ${SYNC.url ? `<div class="data-row"><div><div class="strong">Sync across devices</div><div class="muted small">${sync.code
       ? `On. Your code is <b class="num">${prettyCode(sync.code)}</b>. Enter it on another device to see the same numbers there.${sync.last ? ' Last synced ' + fmtDate(sync.last, { month: 'short', day: 'numeric' }) + ' ' + fmtTime(sync.last) + '.' : ''}${sync.status === 'error' ? ' <span class="warn">Cannot reach the cloud right now.</span>' : ''}`
       : 'Keep the same numbers on your computer, laptop and phone. Turn it on here, then enter the code it gives you on each other device.'}</div></div>
