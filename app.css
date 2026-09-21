@@ -827,3 +827,19 @@ input[type="date"].inp { min-width: 0; }
   .nav-label { display: block; max-width: 100%; overflow: hidden; }
   .nav .ico { flex: none; }
 }
+
+/* casino: velvet hero and generated icons (art/casino-*.png) */
+[data-theme="casino"] .hero { background: linear-gradient(180deg, #2c0d13, #170a0d 70%, #120a0c); border-color: rgba(212,175,55,.7); box-shadow: inset 0 0 0 4px #170a0d, inset 0 0 0 5px rgba(212,175,55,.4), 0 14px 34px rgba(0,0,0,.6); }
+[data-theme="casino"] .hero .label { color: #e6c25c; }
+[data-theme="casino"] .brand-mark { width: 28px; height: 28px; background: url(art/casino-chips.png) center / contain no-repeat; transform: none; }
+[data-theme="casino"] .hero-top .label::before { content: ""; display: inline-block; width: 28px; height: 28px; margin: -8px 8px -8px 0; background: url(art/casino-chips.png) center / contain no-repeat; vertical-align: middle; }
+[data-theme="casino"] .meter { position: relative; }
+[data-theme="casino"] .meter .token { display: block; position: absolute; top: 50%; width: 36px; height: 36px; margin: -18px 0 0 -18px; background: url(art/casino-chip.png) center / contain no-repeat; filter: drop-shadow(0 3px 3px rgba(0,0,0,.5)); transition: left .6s cubic-bezier(.2,.7,.2,1); }
+[data-theme="casino"] .meter.done .token { background-image: url(art/casino-gem.png); }
+[data-theme="casino"] .page-head h1::before { content: ""; display: inline-block; width: 40px; height: 40px; margin: -8px 10px -8px 0; vertical-align: middle; background: center / contain no-repeat; }
+[data-theme="casino"] [data-view="accounts"] .page-head h1::before, [data-theme="casino"] [data-view="bills"] .page-head h1::before { background-image: url(art/casino-chips.png); }
+[data-theme="casino"] [data-view="goals"] .page-head h1::before { background-image: url(art/casino-gem.png); }
+[data-theme="casino"] [data-view="upcoming"] .page-head h1::before { background-image: url(art/casino-cards.png); }
+[data-theme="casino"] [data-view="plan"] .page-head h1::before, [data-theme="casino"] [data-view="history"] .page-head h1::before { background-image: url(art/casino-chip.png); }
+[data-theme="casino"] .goal.done .row:first-child::after { content: ""; display: inline-block; width: 26px; height: 26px; margin-left: 8px; background: url(art/casino-gem.png) center / contain no-repeat; vertical-align: middle; }
+[data-theme="casino"] .panel-head { background: linear-gradient(90deg, rgba(212,175,55,.10), transparent 60%); }
