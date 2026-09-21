@@ -33,7 +33,6 @@ const VIEWS = [
   { id: 'accounts', label: 'Accounts' },
   { id: 'plan',     label: 'Plan' },
   { id: 'goals',    label: 'Goals' },
-  { id: 'bills',    label: 'Bills' },
   { id: 'upcoming', label: 'Upcoming' },
   { id: 'history',  label: 'History' },
 ];
@@ -101,7 +100,6 @@ const ICONS = {
   accounts: '<path d="M3 8l7-4 7 4H3zM5 8v6M9 8v6M13 8v6M17 8v6M3 17h14"/>',
   plan:     '<path d="M10 3a7 7 0 1 0 7 7h-7z"/><path d="M12 2a6 6 0 0 1 6 6h-6z"/>',
   goals:    '<path d="M5 17V3M5 4h10l-2 3 2 3H5"/>',
-  bills:    '<path d="M5 3h10v14l-2-1.5L11 17l-2-1.5L7 17l-2-1.5zM7 7h6M7 10h6"/>',
   upcoming: '<rect x="3" y="3" width="14" height="14" rx="3"/><circle cx="7" cy="7" r="1.3" fill="currentColor" stroke="none"/><circle cx="13" cy="13" r="1.3" fill="currentColor" stroke="none"/><circle cx="10" cy="10" r="1.3" fill="currentColor" stroke="none"/>',
   history:  '<circle cx="10" cy="10" r="7"/><path d="M10 6v4l3 2"/>',
 };
@@ -116,19 +114,29 @@ const fresh = () => ({
   settings: { theme: 'dark', income: 0, lastBackup: null, mainGoalId: null, view: 'now' },
   accounts: [], snapshots: [], txns: [], goals: [], buckets: [], bills: [], upcoming: [],
 });
+/* if saved data cannot be read, the app must never write an empty ledger over it, here or in the cloud */
+let loadFailed = false;
 let S = load();
 let view = 'overview', chartRange = 'all', histFilter = 'all', shownNet = null, modalResolve = null;
 
 function load() {
+  let raw = null;
   try {
-    let raw = localStorage.getItem(STORE_KEY);
+    raw = localStorage.getItem(STORE_KEY);
     if (!raw) {
       raw = localStorage.getItem(LEGACY_KEY);
       if (raw) localStorage.setItem(STORE_KEY, raw);
     }
     if (!raw) return fresh();
-    return hydrate(JSON.parse(raw));
-  } catch (e) { console.warn('Wall Street: could not load saved data', e); return fresh(); }
+    const out = hydrate(JSON.parse(raw));
+    loadFailed = false;
+    return out;
+  } catch (e) {
+    console.warn('Wall Street: could not load saved data', e);
+    loadFailed = !!raw;
+    if (raw) setTimeout(() => toast('Saved numbers could not be read. Nothing will be overwritten; reload, or restore a backup.'), 500);
+    return fresh();
+  }
 }
 function hydrate(d) {
   const base = fresh();
@@ -137,12 +145,13 @@ function hydrate(d) {
   if (!THEMES.includes(out.settings.theme)) out.settings.theme = 'dark';
   for (const k of ['accounts', 'snapshots', 'txns', 'goals', 'buckets', 'bills', 'upcoming']) if (!Array.isArray(out[k])) out[k] = [];
   out.buckets.forEach(b => { if (!Array.isArray(b.accountIds)) b.accountIds = []; });
-  out.bills.forEach(b => { if (!b.paid || typeof b.paid !== 'object') b.paid = {}; });
+  out.bills.forEach(b => { if (!b.paid || typeof b.paid !== 'object') b.paid = {}; if (!['month', 'week', '2weeks', 'year'].includes(b.every)) b.every = 'month'; });
   out.goals.forEach(g => { if (g.kind !== 'net') g.kind = 'manual'; if (typeof g.saved !== 'number') g.saved = 0; });
   out.upcoming.forEach(u => { if (u.kind !== 'in') u.kind = 'out'; if (!u.done || typeof u.done !== 'object') u.done = null; });
   return out;
 }
 function save(o) {
+  if (loadFailed) { toast('Not saved: the numbers already here could not be read. Reload, or restore a backup.'); return; }
   try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); }
   catch (e) { console.error(e); toast('Could not save. Is storage blocked?'); }
   if (sync.code && !(o && o.local)) schedulePush();
@@ -225,7 +234,7 @@ async function syncPull(o) {
 }
 function schedulePush() { clearTimeout(pushTimer); pushTimer = setTimeout(syncPush, 800); }
 async function syncPush() {
-  if (!sync.code || !SYNC.url) return;
+  if (!sync.code || !SYNC.url || loadFailed) return;
   if (!navigator.onLine) { setSyncStatus('error'); return; }
   setSyncStatus('syncing');
   try {
@@ -353,32 +362,74 @@ function mainGoal() {
 }
 const isMainGoal = g => { const m = mainGoal(); return !!m && m.id === g.id; };
 
-/* bills */
+/* repeating items ("bills"): every month on a day, or every week / 2 weeks / year counted from a start date.
+   Each occurrence has a key in b.paid: 'YYYY-MM' for monthly (as it always was), the due date for the others. */
+const EVERY = { month: 'Every month', week: 'Every week', '2weeks': 'Every 2 weeks', year: 'Every year' };
+const EVERY_TAG = { month: 'MONTHLY', week: 'WEEKLY', '2weeks': '2 WEEKS', year: 'YEARLY' };
+const PER_MONTH = { month: 1, week: 52 / 12, '2weeks': 26 / 12, year: 1 / 12 };
+const MD = { month: 'short', day: 'numeric' };
+const dayDiff = (a, b) => Math.round((a - b) / 864e5);
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 function billDue(b, ref) {
   ref = ref || new Date();
   const y = ref.getFullYear(), m = ref.getMonth();
   const last = new Date(y, m + 1, 0).getDate();
   return new Date(y, m, Math.min(Math.max(1, b.day | 0), last));
 }
-function billStatus(b) {
-  const paid = b.paid && b.paid[ym()];
-  if (paid) return { state: 'paid', date: paid.date, amount: paid.amount };
-  const due = billDue(b), days = Math.round((due - parseISO(todayStr())) / 864e5);
-  return { state: days < 0 ? 'overdue' : 'due', days, due };
+/* the occurrence whose window holds ref: the calendar month, the calendar year, or the 7 / 14 day cycle that the start date sits in.
+   Nothing is due before the start date: an item that starts in the future waits for its first date. */
+function occAt(b, ref) {
+  const every = b.every || 'month', start = b.start ? parseISO(b.start) : null;
+  let occ;
+  if (every === 'month') occ = { due: billDue(b, ref), key: ym(ref) };
+  else if (every === 'year') {
+    const a = start || ref, last = new Date(ref.getFullYear(), a.getMonth() + 1, 0).getDate();
+    occ = { due: new Date(ref.getFullYear(), a.getMonth(), Math.min(a.getDate(), last)), key: String(ref.getFullYear()) };
+  } else {
+    const L = every === '2weeks' ? 14 : 7, a = start || ref, w0 = addDays(a, -((a.getDay() + 6) % 7));
+    const due = addDays(w0, Math.floor(dayDiff(ref, w0) / L) * L + dayDiff(a, w0));
+    occ = { due, key: localISO(due) };
+  }
+  return start && occ.due < start ? occAt(b, start) : occ;
 }
+/* the occurrence after this one */
+function occAfter(b, occ) {
+  const every = b.every || 'month', d = occ.due;
+  const ref = every === 'month' ? new Date(d.getFullYear(), d.getMonth() + 1, 1) : every === 'year' ? new Date(d.getFullYear() + 1, 0, 1) : addDays(d, every === '2weeks' ? 14 : 7);
+  return occAt(b, ref);
+}
+function billStatus(b) {
+  const today = parseISO(todayStr()), occ = occAt(b, today), paid = b.paid && b.paid[occ.key], next = occAfter(b, occ).due;
+  if (paid) return { state: 'paid', date: paid.date, amount: paid.amount, key: occ.key, next };
+  const days = dayDiff(occ.due, today);
+  return { state: days < 0 ? 'overdue' : 'due', days, due: occ.due, key: occ.key, next };
+}
+/* unpaid occurrences due within `days` days, overdue ones included */
 function billsDue(days) {
   const today = parseISO(todayStr()), out = [];
-  const months = [new Date(), new Date(today.getFullYear(), today.getMonth() + 1, 1)];
-  for (const ref of months) for (const b of S.bills) {
-    if (b.paid && b.paid[ym(ref)]) continue;
-    const due = billDue(b, ref), d = Math.round((due - today) / 864e5);
-    if (d <= days) out.push({ bill: b, due, days: d });
+  for (const b of S.bills) {
+    let occ = occAt(b, today);
+    for (let i = 0; i < 60; i++) {
+      const d = dayDiff(occ.due, today);
+      if (d > days) break;
+      if (!(b.paid && b.paid[occ.key])) out.push({ bill: b, due: occ.due, days: d, key: occ.key });
+      occ = occAfter(b, occ);
+    }
   }
   return out.sort((a, b) => a.due - b.due);
 }
-const billsMonthly = () => sum(S.bills, b => b.amount);
-const billsPaidThisMonth = () => { const key = ym(); return sum(S.bills.filter(b => b.paid && b.paid[key]), b => b.paid[key].amount); };
-const billsLeft = () => Math.max(0, billsMonthly() - billsPaidThisMonth());
+/* what the repeating items add up to per month, for the plan page */
+const billsMonthly = () => sum(S.bills, b => b.amount * (PER_MONTH[b.every] || 1));
+/* still to be paid this month: every unpaid occurrence that falls in the current month, overdue ones included */
+function billsLeft() {
+  const today = parseISO(todayStr()), first = new Date(today.getFullYear(), today.getMonth(), 1), last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  let total = 0;
+  for (const b of S.bills) {
+    let occ = occAt(b, first);
+    for (let i = 0; i < 6 && occ.due <= last; i++) { if (occ.due >= first && !(b.paid && b.paid[occ.key])) total += b.amount; occ = occAfter(b, occ); }
+  }
+  return total;
+}
 /* money that is still going to leave this month: bills not yet paid, plus planned one-time expenses.
    The overview shows net worth as it is, or with these already taken out; the switch is remembered. */
 function withdrawals() {
@@ -443,7 +494,7 @@ function movesMsg(P) {
 /* ======================================================================
    views
    ====================================================================== */
-const VIEW_FN = { overview: vOverview, accounts: vAccounts, plan: vPlan, goals: vGoals, bills: vBills, upcoming: vUpcoming, history: vHistory };
+const VIEW_FN = { overview: vOverview, accounts: vAccounts, plan: vPlan, goals: vGoals, upcoming: vUpcoming, history: vHistory };
 
 function render() {
   document.documentElement.dataset.theme = S.settings.theme;
@@ -456,7 +507,7 @@ function render() {
   afterRender();
 }
 function renderNav() {
-  const counts = { accounts: S.accounts.length, goals: S.goals.length, bills: S.bills.length, plan: S.buckets.length, upcoming: pending().length };
+  const counts = { accounts: S.accounts.length, goals: S.goals.length, plan: S.buckets.length, upcoming: pending().length + S.bills.filter(b => billStatus(b).state !== 'paid').length };
   $('#nav').innerHTML = VIEWS.map(v => '<a href="#' + v.id + '" class="nav-item' + (v.id === view ? ' on' : '') + '">' + icon(v.id) + '<span class="nav-label">' + v.label + '</span>' + (counts[v.id] ? '<span class="nav-n num">' + counts[v.id] + '</span>' : '') + '</a>').join('');
   const lb = S.settings.lastBackup;
   $('#sideStatus').innerHTML = esc(syncLine()) + '<br>' + (lb ? 'Backed up ' + fmtDate(lb, { month: 'short', day: 'numeric' }) : 'Never backed up');
@@ -523,7 +574,7 @@ function vOverview() {
     </section>
     <div class="stack">
       <section class="panel">
-        <div class="panel-head"><span class="label">${word('Coming up')}</span><span class="links"><a class="link" href="#bills">Bills</a><a class="link" href="#upcoming">Upcoming</a></span></div>
+        <div class="panel-head"><span class="label">${word('Coming up')}</span><a class="link" href="#upcoming">All upcoming</a></div>
         ${up.length
           ? `<ul class="list">${up.map(u => `<li><span class="num muted w-date">${fmtDate(u.date, { month: 'short', day: 'numeric' })}</span>${u.kind !== 'bill' ? `<span class="tag ${u.kind === 'in' ? 'pos-tag' : 'neg-tag'}">${u.kind === 'in' ? 'IN' : 'OUT'}</span>` : ''}<span class="grow">${esc(u.name)}</span>${u.days < 0 && u.kind === 'bill' ? '<span class="tag neg-tag">late</span>' : ''}<span class="num ${u.kind === 'in' ? 'pos' : 'neg'}">${u.kind === 'in' ? '+' : MINUS}${money(u.amount)}</span></li>`).join('')}</ul>`
           : `<p class="empty">${S.bills.length || S.upcoming.length ? 'Nothing in the next 30 days.' : 'No bills or upcoming items yet.'}</p>`}
@@ -696,77 +747,77 @@ function vGoals() {
     </section>`; }).join('')}</div>`;
 }
 
-/* ---------- bills ---------- */
-function vBills() {
-  const total = billsMonthly(), paidAmt = billsPaidThisMonth();
-  const head = `<header class="page-head"><div><h1>Bills</h1><p class="sub">Recurring payments. Paying one moves money out of the source account, and pays the debt down if it is a card or loan.</p></div>
-    <div class="row"><button class="btn btn-primary" data-action="add-bill">Add bill</button></div></header>`;
-  if (!S.bills.length) return head + `<section class="panel"><p class="empty">No bills yet. Rent, car payment, credit card, phone, subscriptions: anything that recurs monthly.</p></section>`;
-  const sorted = S.bills.slice().sort((a, b) => a.day - b.day);
-  return head + `<div class="summary-row">
-      <div class="stat"><div class="label">Monthly total</div><div class="num big neg">${MINUS}${money(total, { cents: false })}</div></div>
-      <div class="stat"><div class="label">Paid in ${fmtDate(todayStr(), { month: 'long' })}</div><div class="num big${paidAmt ? ' neg' : ''}">${paidAmt ? MINUS : ''}${money(paidAmt, { cents: false })}</div></div>
-      <div class="stat"><div class="label">Remaining</div><div class="num big${total - paidAmt > 0 ? ' neg' : ''}">${total - paidAmt > 0 ? MINUS : ''}${money(Math.max(0, total - paidAmt), { cents: false })}</div></div>
-    </div>
-  <section class="panel"><div class="panel-head"><span class="label">This month</span><span class="muted small">in due-date order</span></div>
-  ${sorted.map(b => {
-    const st = billStatus(b), from = acct(b.from), to = acct(b.to);
-    const today = parseISO(todayStr()), nextDue = billDue(b, new Date(today.getFullYear(), today.getMonth() + 1, 1));
-    const status = st.state === 'paid' ? `<span class="pos">Paid ${fmtDate(st.date, { month: 'short', day: 'numeric' })}</span> <span class="muted">${DOT} next ${fmtDate(nextDue, { month: 'short', day: 'numeric' })}</span>`
-      : st.state === 'overdue' ? `<span class="neg">Overdue ${DOT} ${-st.days} day${st.days === -1 ? '' : 's'}</span>`
-      : `<span class="warn">Pending</span> <span class="muted">${DOT} ${st.days === 0 ? 'due today' : 'due ' + fmtDate(st.due, { month: 'short', day: 'numeric' })}${st.days > 0 ? ', ' + relDays(st.days) : ''}</span>`;
-    return `<div class="rrow${st.state === 'paid' ? ' dim' : ''}">
-      <div class="what"><div class="strong">${esc(b.name)}</div><div class="sub">Day ${b.day} ${DOT} ${from ? 'from ' + esc(from.name) : '<span class="warn">no account</span>'}${to ? ` ${DOT} pays down ${esc(to.name)}` : ''}</div></div>
-      <div class="amt"><div class="num neg">${MINUS}${money(st.state === 'paid' ? st.amount : b.amount)}</div><div class="small">${status}</div></div>
-      <div class="acts">${st.state === 'paid'
-        ? `<button class="btn btn-sm btn-ghost" data-action="unpay-bill" data-id="${b.id}">Undo</button>`
-        : `<button class="btn btn-sm btn-primary" data-action="pay-bill" data-id="${b.id}">Pay</button>`}<button class="btn btn-sm btn-ghost" data-action="edit-bill" data-id="${b.id}">Edit</button></div>
-    </div>`; }).join('')}
-  </section>`;
-}
-
-/* ---------- upcoming (one-time money in or out) ---------- */
+/* ---------- upcoming: repeating items and one-time money, in one list ---------- */
 function vUpcoming() {
-  const E = expected(), T = totals();
-  const head = `<header class="page-head"><div><h1>Upcoming</h1><p class="sub">One-time money on the horizon: a purchase you are planning, a refund you are waiting on. Nothing touches a balance until you mark it received or paid.</p></div>
-    <div class="row"><button class="btn" data-action="add-upcoming" data-kind="in">Add money in</button><button class="btn btn-primary" data-action="add-upcoming" data-kind="out">Add expense</button></div></header>`;
-  if (!S.upcoming.length) return head + `<section class="panel"><p class="empty">Nothing planned. Add a purchase you are saving toward, or money you expect to land: a tax refund, a bonus, something you sold.</p></section>`;
-  const open = sortUpcoming(pending());
-  const done = S.upcoming.filter(u => u.done).sort((a, b) => (b.done.date || '').localeCompare(a.done.date || '')).slice(0, 20);
-  const row = u => {
+  const E = expected(), T = totals(), today = parseISO(todayStr());
+  const head = `<header class="page-head"><div><h1>Upcoming</h1><p class="sub">Everything on the horizon: bills that come back on their day, and one-time money in or out. Nothing touches a balance until you mark it paid or received.</p></div>
+    <div class="row"><button class="btn btn-primary" data-action="add-upcoming">Add</button></div></header>`;
+  if (!S.bills.length && !S.upcoming.length) return head + `<section class="panel"><p class="empty">Nothing yet. Add rent, the car payment, a subscription, a refund you are waiting on, or a purchase you are planning.</p></section>`;
+  const dateCol = (due, d) => `<div class="w-date"><div class="num small">${fmtDate(due, MD)}</div><div class="small ${d < 0 ? 'neg' : 'muted'}">${d < 0 ? (-d) + 'd late' : relShort(d)}</div></div>`;
+  const rowOne = u => {
     const inn = u.kind === 'in', a = acct(u.accountId), d = u.date ? daysUntil(u.date) : null;
     const sub = [a ? (inn ? 'into ' : 'from ') + esc(a.name) : '', u.note ? esc(u.note) : ''].filter(Boolean).join(' ' + DOT + ' ');
     return `<div class="rrow">
-      <div class="w-date">${u.date ? `<div class="num small">${fmtDate(u.date, { month: 'short', day: 'numeric' })}</div><div class="small ${d < 0 ? 'warn' : 'muted'}">${relShort(d)}</div>` : `<div class="small muted">no date</div>`}</div>
+      ${u.date ? dateCol(u.date, d) : `<div class="w-date"><div class="small muted">no date</div></div>`}
       <span class="tag ${inn ? 'pos-tag' : 'neg-tag'}">${inn ? 'IN' : 'OUT'}</span>
       <div class="what"><div class="strong">${esc(u.name)}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>
       <div class="amt"><div class="num ${inn ? 'pos' : 'neg'}">${inn ? '+' : MINUS}${money(u.amount)}</div></div>
       <div class="acts"><button class="btn btn-sm btn-primary" data-action="done-upcoming" data-id="${u.id}">${inn ? 'Received' : 'Paid'}</button><button class="btn btn-sm btn-ghost" data-action="edit-upcoming" data-id="${u.id}">Edit</button></div>
     </div>`;
   };
-  const doneRow = u => {
+  const rowBill = (b, st) => {
+    const from = acct(b.from), to = acct(b.to), paid = st.state === 'paid', due = paid ? st.next : st.due, d = dayDiff(due, today);
+    const sub = [from ? 'from ' + esc(from.name) : '<span class="warn">no account</span>', to ? 'pays down ' + esc(to.name) : '', b.note ? esc(b.note) : '', paid ? `<span class="pos">paid ${fmtDate(st.date, MD)}</span>` : ''].filter(Boolean).join(' ' + DOT + ' ');
+    return `<div class="rrow">
+      ${dateCol(due, d)}
+      <span class="tag rep">${EVERY_TAG[b.every] || 'MONTHLY'}</span>
+      <div class="what"><div class="strong">${esc(b.name)}</div><div class="sub">${sub}</div></div>
+      <div class="amt"><div class="num neg">${MINUS}${money(b.amount)}</div></div>
+      <div class="acts">${paid ? '' : `<button class="btn btn-sm btn-primary" data-action="pay-bill" data-id="${b.id}">Pay</button>`}<button class="btn btn-sm btn-ghost" data-action="edit-upcoming" data-type="bill" data-id="${b.id}">Edit</button></div>
+    </div>`;
+  };
+  const doneOne = u => {
     const inn = u.kind === 'in', a = acct(u.done.accountId);
     return `<div class="rrow dim">
-      <div class="w-date"><div class="num small">${fmtDate(u.done.date, { month: 'short', day: 'numeric' })}</div></div>
+      <div class="w-date"><div class="num small">${fmtDate(u.done.date, MD)}</div></div>
       <span class="tag">${inn ? 'IN' : 'OUT'}</span>
       <div class="what"><div class="strong">${esc(u.name)}</div><div class="sub">${inn ? 'Received' : 'Paid'}${a ? (inn ? ' into ' : ' from ') + esc(a.name) : ''}</div></div>
       <div class="amt"><div class="num">${inn ? '+' : MINUS}${money(u.done.amount)}</div></div>
       <div class="acts"><button class="btn btn-sm btn-ghost" data-action="undo-upcoming" data-id="${u.id}">Undo</button><button class="btn btn-sm btn-ghost" data-action="edit-upcoming" data-id="${u.id}">Edit</button></div>
     </div>`;
   };
+  const doneBill = (b, st) => {
+    const p = b.paid[st.key] || {}, from = acct(p.from), to = acct(p.to);
+    return `<div class="rrow dim">
+      <div class="w-date"><div class="num small">${fmtDate(st.date, MD)}</div></div>
+      <span class="tag">${EVERY_TAG[b.every] || 'MONTHLY'}</span>
+      <div class="what"><div class="strong">${esc(b.name)}</div><div class="sub">Paid${from ? ' from ' + esc(from.name) : ''}${to ? ' ' + DOT + ' paid down ' + esc(to.name) : ''}</div></div>
+      <div class="amt"><div class="num">${MINUS}${money(st.amount)}</div></div>
+      <div class="acts"><button class="btn btn-sm btn-ghost" data-action="unpay-bill" data-id="${b.id}">Undo</button></div>
+    </div>`;
+  };
+  /* pending: one-time items by date, and each repeating item at its next unpaid occurrence (or the one after, once this one is paid) */
+  const items = pending().map(u => ({ date: u.date ? +parseISO(u.date) : Infinity, sub: u.createdAt || '', html: rowOne(u) }));
+  const done = S.upcoming.filter(u => u.done).map(u => ({ date: u.done.date || '', html: doneOne(u) }));
+  for (const b of S.bills) {
+    const st = billStatus(b);
+    items.push({ date: +(st.state === 'paid' ? st.next : st.due), sub: '', html: rowBill(b, st) });
+    if (st.state === 'paid') done.push({ date: st.date || '', html: doneBill(b, st) });
+  }
+  items.sort((a, b) => a.date - b.date || a.sub.localeCompare(b.sub));
+  done.sort((a, b) => b.date.localeCompare(a.date));
   const bills = billsLeft(), afterAll = T.N + E.inn - E.out - bills;
   return head + `<div class="summary-row">
       <div class="stat"><div class="label">Coming in</div><div class="num big${E.inn ? ' pos' : ''}">${E.inn ? '+' : ''}${money(E.inn, { cents: false })}</div></div>
       <div class="stat"><div class="label">Going out</div><div class="num big${E.out ? ' neg' : ''}">${E.out ? MINUS : ''}${money(E.out, { cents: false })}</div></div>
       <div class="stat"><div class="label">${word('Bills left')} this month</div><div class="num big${bills ? ' neg' : ''}">${bills ? MINUS : ''}${money(bills, { cents: false })}</div></div>
-      <div class="stat"><div class="label">Net of one-time items</div><div class="num big">${money(E.net, { cents: false, sign: true })}</div></div>
       <div class="stat"><div class="label">${word('Net worth')} now</div><div class="num big">${money(T.N, { cents: false })}</div></div>
       <div class="stat"><div class="label">After everything pending</div><div class="num big${afterAll < T.N ? ' neg' : afterAll > T.N ? ' pos' : ''}">${money(afterAll, { cents: false })}</div></div>
     </div>
-  <section class="panel"><div class="panel-head"><span class="label">Pending</span><span class="muted small">${open.length} item${open.length === 1 ? '' : 's'}</span></div>
-    ${open.length ? open.map(row).join('') : `<p class="empty">Everything here is done.</p>`}
+  <section class="panel"><div class="panel-head"><span class="label">Pending</span><span class="muted small">${items.length} item${items.length === 1 ? '' : 's'} ${DOT} date order</span></div>
+    ${items.length ? items.map(i => i.html).join('') : `<p class="empty">Everything here is done.</p>`}
   </section>
-  ${done.length ? `<section class="panel"><div class="panel-head"><span class="label">Done</span><span class="muted small">newest first</span></div>${done.map(doneRow).join('')}</section>` : ''}`;
+  ${done.length ? `<section class="panel"><div class="panel-head"><span class="label">Done</span><span class="muted small">newest first</span></div>${done.slice(0, 20).map(i => i.html).join('')}</section>` : ''}`;
 }
 
 /* ---------- history ---------- */
@@ -796,7 +847,7 @@ function vHistory() {
   const head = `<header class="page-head"><div><h1>History</h1><p class="sub">Every change, newest first. A net worth snapshot is taken automatically each day you open the app or change something.</p></div></header>`;
   return head + `
   <section class="panel">
-    <div class="panel-head"><span class="label">Changes</span><div class="seg">${Object.keys(kinds).map(k => `<button class="${histFilter === k ? 'on' : ''}" data-action="hist-filter" data-k="${k}">${kinds[k]}</button>`).join('')}</div></div>
+    <div class="panel-head"><span class="label">Changes</span><div class="seg wrap">${Object.keys(kinds).map(k => `<button class="${histFilter === k ? 'on' : ''}" data-action="hist-filter" data-k="${k}">${kinds[k]}</button>`).join('')}</div></div>
     ${list.length
       ? `<table class="tbl compact"><thead><tr><th>When</th><th class="w-tag hide-sm"></th><th>What</th><th class="r">Amount</th></tr></thead><tbody>
          ${list.map(t => `<tr><td class="muted small num" style="white-space:nowrap">${fmtDate(t.date, { month: 'short', day: 'numeric' })} <span class="hide-sm" style="opacity:.6">${fmtTime(t.date)}</span></td><td class="hide-sm"><span class="tag">${KIND_TAG[t.kind] || t.kind}</span></td><td>${esc(t.desc)}${t.note ? `<span class="muted small"> ${DOT} ${esc(t.note)}</span>` : ''}</td><td class="r num ${amtClass(t)}">${amtText(t)}</td></tr>`).join('')}
@@ -1045,38 +1096,55 @@ function wireGoalKind() {
   k.addEventListener('change', sync); sync();
 }
 const goalFromForm = v => { const net = v.kind === 'net'; return { name: v.name, kind: net ? 'net' : 'manual', target: Math.abs(v.target), saved: net ? 0 : Math.abs(v.saved), due: v.due, accountId: net ? null : (v.accountId || null) }; };
-const billFields = b => {
-  b = b || {};
+const REPEAT_OPTS = [{ v: '', l: 'One time' }, { v: 'week', l: 'Every week' }, { v: '2weeks', l: 'Every 2 weeks' }, { v: 'month', l: 'Every month' }, { v: 'year', l: 'Every year' }];
+/* the next date a repeating item is due, as the form shows it */
+const billNextISO = b => { const st = billStatus(b); return localISO(st.state === 'paid' ? st.next : st.due); };
+/* one form for a one-time item or a repeating one (type 'bill'): the Repeats dropdown decides which it is */
+const upcomingFields = (it, type) => {
+  it = it || {};
+  const rep = type === 'bill', kind = rep ? 'out' : (it.kind || 'out');
   return [
-    { key: 'name', label: 'Bill', value: b.name, placeholder: 'e.g. Car payment', required: true },
-    { key: 'amount', label: 'Amount', type: 'money', value: b.amount == null ? '' : b.amount.toFixed(2), required: true, half: true, hint: 'For a card, a typical amount. You can change it when you pay.' },
-    { key: 'day', label: 'Due day of month', type: 'number', value: b.day || '', min: 1, max: 31, step: 1, required: true, half: true },
-    { key: 'from', label: 'Paid from', type: 'select', value: b.from || '', options: [{ v: '', l: DASH }].concat(assets().map(a => ({ v: a.id, l: a.name }))) },
-    { key: 'to', label: 'Pays down', type: 'select', value: b.to || '', options: [{ v: '', l: 'Nothing, it is an expense' }].concat(liabilities().map(a => ({ v: a.id, l: a.name }))), hint: 'Pick the card or loan this payment reduces.' },
-  ];
-};
-const upcomingFields = (u, kind) => {
-  u = u || {};
-  kind = u.kind || kind || 'out';
-  return [
-    { key: 'name', label: 'What', value: u.name, placeholder: kind === 'in' ? 'e.g. Tax refund' : 'e.g. New tires', required: true },
+    { key: 'name', label: 'What', value: it.name, placeholder: 'e.g. Car payment, new tires, tax refund', required: true },
     { key: 'kind', label: 'Direction', type: 'select', value: kind, half: true, options: [{ v: 'out', l: 'Money going out' }, { v: 'in', l: 'Money coming in' }] },
-    { key: 'amount', label: 'Amount', type: 'money', value: u.amount == null ? '' : u.amount.toFixed(2), required: true, half: true },
-    { key: 'date', label: 'Expected', type: 'date', value: u.date || '', half: true, hint: 'Leave it blank if you are not sure yet.' },
-    { key: 'accountId', label: 'Account', type: 'select', value: u.accountId || '', half: true, options: [{ v: '', l: 'Decide later' }].concat(S.accounts.map(a => ({ v: a.id, l: a.name }))), hint: 'Where it comes from or lands.' },
-    { key: 'repeat', label: 'Repeats', type: 'select', value: '', options: [{ v: '', l: 'One time only' }, { v: 'monthly', l: 'Every month on this day (becomes a bill)' }], hint: 'A car payment, rent, a subscription: pick monthly and it moves to Bills, where it comes back due each month.' },
-    { key: 'note', label: 'Note', value: u.note, placeholder: 'optional' },
+    { key: 'amount', label: 'Amount', type: 'money', value: it.amount == null ? '' : it.amount.toFixed(2), required: true, half: true },
+    { key: 'repeat', label: 'Repeats', type: 'select', value: rep ? (it.every || 'month') : '', half: true, options: REPEAT_OPTS },
+    { key: 'date', label: 'Expected', type: 'date', value: rep ? billNextISO(it) : (it.date || ''), half: true, hint: 'Leave it blank if you are not sure yet.' },
+    { key: 'accountId', label: 'Paid from', type: 'select', value: (rep ? it.from : it.accountId) || '', half: true, options: [{ v: '', l: 'Decide later' }].concat(S.accounts.map(a => ({ v: a.id, l: a.name }))) },
+    { key: 'to', label: 'Pays down', type: 'select', value: it.to || '', half: true, options: [{ v: '', l: 'Nothing' }].concat(liabilities().map(a => ({ v: a.id, l: a.name }))), hint: 'The card or loan this payment reduces.' },
+    { key: 'note', label: 'Note', value: it.note, placeholder: 'optional' },
   ];
 };
-/* a one-time item that turns out to repeat becomes a bill on that day of the month */
-function upcomingToBill(v, u) {
-  const day = v.date ? parseISO(v.date).getDate() : parseISO(todayStr()).getDate();
-  const a = acct(v.accountId);
-  const b = { id: uid(), name: v.name, amount: Math.abs(v.amount), day: Math.min(31, Math.max(1, day)), from: a && isAsset(a) ? a.id : null, to: a && !isAsset(a) ? a.id : null, paid: {} };
-  S.bills.push(b);
+/* the form adapts as the dropdowns change: repeating items need a date and can pay a debt down; money in does not repeat */
+function wireUpcomingForm() {
+  const kind = $('#f_kind'), rep = $('#f_repeat'), date = $('#f_date'), acc = $('#f_accountId'), to = $('#f_to');
+  if (!kind || !rep || !date) return;
+  const field = el => el.closest('.field'), label = el => field(el).querySelector('label');
+  const hint = (el, text) => { let h = field(el).querySelector('.hint'); if (!h) { h = document.createElement('div'); h.className = 'hint'; field(el).appendChild(h); } h.textContent = text; h.style.display = text ? '' : 'none'; };
+  const show = (el, on) => { field(el).style.display = on ? '' : 'none'; };
+  const sync = () => {
+    const inn = kind.value === 'in';
+    if (inn) rep.value = '';
+    const r = rep.value, repeating = !inn && !!r;
+    show(rep, !inn);
+    hint(kind, inn ? 'Money in is one time. Regular pay lives on the Plan page.' : '');
+    label(date).textContent = repeating ? 'Next due' : 'Expected';
+    hint(date, repeating ? (r === 'month' ? 'It comes back on this day every month.' : 'It comes back ' + EVERY[r].toLowerCase().replace('every ', 'every ') + ' from this date.') : 'Leave it blank if you are not sure yet.');
+    date.required = repeating;
+    label(acc).textContent = inn ? 'Into' : 'Paid from';
+    show(to, repeating);
+  };
+  kind.addEventListener('change', sync); rep.addEventListener('change', sync); sync();
+}
+/* save a repeating item from the form: a new one, an edit, or a one-time item that turned out to repeat.
+   The start date only moves when the date in the form was changed, so editing a name never resets the cycle. */
+function saveRepeating(v, b, u, prefill) {
+  const d = v.date || todayStr(), dt = parseISO(d), fresh = !b;
+  if (!b) { b = { id: uid(), paid: {} }; S.bills.push(b); }
+  Object.assign(b, { name: v.name, amount: Math.abs(v.amount), every: EVERY[v.repeat] ? v.repeat : 'month', day: dt.getDate(), from: v.accountId || null, to: v.to || null, note: v.note || '' });
+  if (fresh || d !== prefill) b.start = d;
   if (u) S.upcoming = S.upcoming.filter(x => x !== u);
   save(); render();
-  toast(b.name + ' is now a monthly bill, due on the ' + b.day + ordinal(b.day) + '. See Bills.');
+  toast(fresh || u ? b.name + ' repeats ' + EVERY[b.every].toLowerCase() + ', next ' + fmtDate(billNextISO(b), MD) : 'Saved');
 }
 const ordinal = n => (n % 10 === 1 && n !== 11) ? 'st' : (n % 10 === 2 && n !== 12) ? 'nd' : (n % 10 === 3 && n !== 13) ? 'rd' : 'th';
 
@@ -1226,28 +1294,53 @@ const actions = {
     commit(g.saved >= g.target ? g.name + ' is funded' : money(amt) + ' toward ' + g.name);
   },
 
-  /* bills */
-  async 'add-bill'() {
-    const r = await form({ title: 'New bill', fields: billFields(), submit: 'Add bill' });
+  /* upcoming: one-time items and repeating ones */
+  async 'add-upcoming'() {
+    const p = form({ title: 'Add to upcoming', fields: upcomingFields(), submit: 'Add' }); wireUpcomingForm();
+    const r = await p; if (!r.ok) return;
+    if (r.v.kind !== 'in' && r.v.repeat) { saveRepeating(r.v, null, null); return; }
+    const u = { id: uid(), name: r.v.name, kind: r.v.kind === 'in' ? 'in' : 'out', amount: Math.abs(r.v.amount), date: r.v.date, accountId: r.v.accountId || null, note: r.v.note, createdAt: nowISO(), done: null };
+    S.upcoming.push(u); save(); render(); toast(u.name + ' added');
+  },
+  async 'edit-upcoming'(el) {
+    if (el.dataset.type === 'bill') return actions['edit-bill'](el);
+    const u = S.upcoming.find(x => x.id === el.dataset.id); if (!u) return;
+    const fields = u.done
+      ? [{ key: 'name', label: 'What', value: u.name, required: true }, { key: 'note', label: 'Note', value: u.note, placeholder: 'optional' }]
+      : upcomingFields(u);
+    const p = form({ title: 'Edit', intro: u.done ? 'Already ' + (u.kind === 'in' ? 'received' : 'paid') + '. Undo it first to change the amount or account.' : '', fields, danger: 'Delete' });
+    if (!u.done) wireUpcomingForm();
+    const r = await p;
+    if (r.danger) { S.upcoming = S.upcoming.filter(x => x !== u); save(); render(); toast(u.name + ' removed'); return; }
     if (!r.ok) return;
-    const b = { id: uid(), name: r.v.name, amount: Math.abs(r.v.amount), day: Math.min(31, Math.max(1, r.v.day | 0)), from: r.v.from || null, to: r.v.to || null, paid: {} };
-    S.bills.push(b); save(); render(); toast(b.name + ' added');
+    if (!u.done && r.v.kind !== 'in' && r.v.repeat) { saveRepeating(r.v, null, u); return; }
+    if (u.done) Object.assign(u, { name: r.v.name, note: r.v.note });
+    else Object.assign(u, { name: r.v.name, kind: r.v.kind === 'in' ? 'in' : 'out', amount: Math.abs(r.v.amount), date: r.v.date, accountId: r.v.accountId || null, note: r.v.note });
+    save(); render(); toast('Saved');
   },
   async 'edit-bill'(el) {
     const b = S.bills.find(x => x.id === el.dataset.id); if (!b) return;
-    const r = await form({ title: 'Edit bill', fields: billFields(b), danger: 'Delete bill' });
+    const prefill = billNextISO(b);
+    const p = form({ title: 'Edit', fields: upcomingFields(b, 'bill'), danger: 'Delete' }); wireUpcomingForm();
+    const r = await p;
     if (r.danger) { S.bills = S.bills.filter(x => x !== b); save(); render(); toast(b.name + ' removed'); return; }
     if (!r.ok) return;
-    Object.assign(b, { name: r.v.name, amount: Math.abs(r.v.amount), day: Math.min(31, Math.max(1, r.v.day | 0)), from: r.v.from || null, to: r.v.to || null });
-    save(); render(); toast('Saved');
+    if (r.v.kind === 'in' || !r.v.repeat) {
+      /* it no longer repeats: it becomes a one-time item on that date */
+      S.bills = S.bills.filter(x => x !== b);
+      const u = { id: uid(), name: r.v.name, kind: r.v.kind === 'in' ? 'in' : 'out', amount: Math.abs(r.v.amount), date: r.v.date, accountId: r.v.accountId || null, note: r.v.note, createdAt: nowISO(), done: null };
+      S.upcoming.push(u); save(); render(); toast(u.name + ' is now a one-time item'); return;
+    }
+    saveRepeating(r.v, b, null, prefill);
   },
   async 'pay-bill'(el) {
     const b = S.bills.find(x => x.id === el.dataset.id); if (!b) return;
+    const st = billStatus(b); if (st.state === 'paid') return;
     const to = acct(b.to);
     const r = await form({ title: 'Pay ' + b.name, intro: to ? esc(to.name) + ' currently owes ' + money(to.balance) : '', fields: [
       { key: 'amount', label: 'Amount', type: 'money', value: b.amount.toFixed(2), required: true, half: true },
       { key: 'date', label: 'Date', type: 'date', value: todayStr(), half: true },
-      { key: 'from', label: 'From', type: 'select', value: b.from || '', options: [{ v: '', l: 'Do not touch an account' }].concat(accountOpts(assets())) },
+      { key: 'from', label: 'From', type: 'select', value: b.from || '', options: [{ v: '', l: 'Do not touch an account' }].concat(accountOpts(S.accounts)), hint: 'Paying with a card adds to what is owed on it.' },
     ], submit: 'Mark paid' });
     if (!r.ok) return;
     const amt = Math.abs(r.v.amount), f = acct(r.v.from);
@@ -1255,40 +1348,18 @@ const actions = {
     if (to) applyIn(to, amt);
     const id = uid();
     txn({ id, kind: 'payment', amount: amt, from: f ? f.id : null, to: to ? to.id : null, desc: 'Paid ' + b.name + (f ? ' from ' + f.name : '') + (to ? ' ' + ARROW + ' ' + to.name : '') });
-    b.paid[ym()] = { date: r.v.date || todayStr(), amount: amt, from: f ? f.id : null, to: to ? to.id : null, txnId: id };
+    b.paid[st.key] = { date: r.v.date || todayStr(), amount: amt, from: f ? f.id : null, to: to ? to.id : null, txnId: id };
     commit(b.name + ' paid');
   },
   async 'unpay-bill'(el) {
-    const b = S.bills.find(x => x.id === el.dataset.id), p = b && b.paid[ym()]; if (!p) return;
+    const b = S.bills.find(x => x.id === el.dataset.id); if (!b) return;
+    const st = billStatus(b), p = st.state === 'paid' && b.paid[st.key]; if (!p) return;
     const f = acct(p.from), t = acct(p.to);
     if (f) applyIn(f, p.amount);
     if (t) applyOut(t, p.amount);
-    delete b.paid[ym()];
+    delete b.paid[st.key];
     txn({ kind: 'reverse', amount: p.amount, from: t ? t.id : null, to: f ? f.id : null, desc: 'Undid ' + b.name + ' payment' });
     commit(b.name + ' marked unpaid');
-  },
-
-  /* upcoming */
-  async 'add-upcoming'(el) {
-    const kind = el.dataset.kind === 'in' ? 'in' : 'out';
-    const r = await form({ title: kind === 'in' ? 'Money coming in' : 'Planned expense', fields: upcomingFields(null, kind), submit: 'Add' });
-    if (!r.ok) return;
-    if (r.v.repeat === 'monthly' && r.v.kind !== 'in') { upcomingToBill(r.v, null); return; }
-    const u = { id: uid(), name: r.v.name, kind: r.v.kind === 'in' ? 'in' : 'out', amount: Math.abs(r.v.amount), date: r.v.date, accountId: r.v.accountId || null, note: r.v.note, createdAt: nowISO(), done: null };
-    S.upcoming.push(u); save(); render(); toast(u.name + ' added');
-  },
-  async 'edit-upcoming'(el) {
-    const u = S.upcoming.find(x => x.id === el.dataset.id); if (!u) return;
-    const fields = u.done
-      ? [{ key: 'name', label: 'What', value: u.name, required: true }, { key: 'note', label: 'Note', value: u.note, placeholder: 'optional' }]
-      : upcomingFields(u);
-    const r = await form({ title: u.done ? 'Edit' : 'Edit upcoming', intro: u.done ? 'Already ' + (u.kind === 'in' ? 'received' : 'paid') + '. Undo it first to change the amount or account.' : '', fields, danger: 'Delete' });
-    if (r.danger) { S.upcoming = S.upcoming.filter(x => x !== u); save(); render(); toast(u.name + ' removed'); return; }
-    if (!r.ok) return;
-    if (!u.done && r.v.repeat === 'monthly' && r.v.kind !== 'in') { upcomingToBill(r.v, u); return; }
-    if (u.done) Object.assign(u, { name: r.v.name, note: r.v.note });
-    else Object.assign(u, { name: r.v.name, kind: r.v.kind === 'in' ? 'in' : 'out', amount: Math.abs(r.v.amount), date: r.v.date, accountId: r.v.accountId || null, note: r.v.note });
-    save(); render(); toast('Saved');
   },
   async 'done-upcoming'(el) {
     const u = S.upcoming.find(x => x.id === el.dataset.id); if (!u || u.done) return;
@@ -1419,11 +1490,12 @@ function loadDemo() {
   ];
   S.settings.mainGoalId = S.goals[0].id;
   S.bills = [
-    { id: uid(), name: 'Rent', amount: 1450, day: 1, from: chk.id, to: null, paid: {} },
-    { id: uid(), name: 'Phone', amount: 68, day: 8, from: chk.id, to: null, paid: {} },
-    { id: uid(), name: 'Gym', amount: 42, day: 15, from: chk.id, to: null, paid: {} },
-    { id: uid(), name: 'Car payment', amount: 312, day: 22, from: chk.id, to: car.id, paid: {} },
-    { id: uid(), name: 'Sapphire card', amount: 600, day: 25, from: chk.id, to: cc.id, paid: {} },
+    { id: uid(), name: 'Rent', amount: 1450, every: 'month', day: 1, from: chk.id, to: null, paid: {} },
+    { id: uid(), name: 'Phone', amount: 68, every: 'month', day: 8, from: chk.id, to: null, paid: {} },
+    { id: uid(), name: 'Gym', amount: 42, every: 'month', day: 15, from: chk.id, to: null, paid: {} },
+    { id: uid(), name: 'Car payment', amount: 312, every: 'month', day: 22, from: chk.id, to: car.id, paid: {} },
+    { id: uid(), name: 'Sapphire card', amount: 600, every: 'month', day: 25, from: chk.id, to: cc.id, paid: {} },
+    { id: uid(), name: 'Cleaner', amount: 80, every: '2weeks', day: 1, start: localISO(new Date(Date.now() + 3 * 864e5)), from: chk.id, to: null, paid: {} },
   ];
   const dd = n => localISO(new Date(Date.now() + n * 864e5));
   S.upcoming = [
@@ -1434,7 +1506,7 @@ function loadDemo() {
   ];
   S.settings.income = 4800;
   const today = new Date().getDate(), key = ym();
-  S.bills.forEach(b => { if (b.day < today) b.paid[key] = { date: key + '-' + pad2(b.day), amount: b.amount, from: b.from, to: b.to }; });
+  S.bills.forEach(b => { if (b.every === 'month' && b.day < today) b.paid[key] = { date: key + '-' + pad2(b.day), amount: b.amount, from: b.from, to: b.to }; });
   const T = totals(), NW = T.N - billsLeft(), start = Date.now() - 180 * 864e5;
   let net = NW * 0.78;
   for (let d = 0; d < 180; d += 5) {
@@ -1468,12 +1540,13 @@ async function onImportFile(e) {
     S = hydrate(d); shownNet = null; save(); render(); toast('Backup restored');
   } catch (err) { console.warn(err); toast('That file is not a Wall Street backup'); }
 }
+const VIEW_ALIAS = { bills: 'upcoming' };
 function syncHash() {
-  const h = location.hash.slice(1);
+  const h0 = location.hash.slice(1), h = VIEW_ALIAS[h0] || h0;
   if (VIEWS.some(v => v.id === h) && h !== view) { view = h; window.scrollTo(0, 0); render(); }
 }
 function init() {
-  const h = location.hash.slice(1);
+  const h0 = location.hash.slice(1), h = VIEW_ALIAS[h0] || h0;
   if (VIEWS.some(v => v.id === h)) view = h;
   $('#main').addEventListener('click', onAction);
   $('.side').addEventListener('click', onAction);

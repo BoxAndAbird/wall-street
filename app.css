@@ -182,9 +182,13 @@ h3 { font-size: 18px; font-weight: 600; margin: 0 0 14px; }
 .inp:focus { border-color: var(--accent); }
 select.inp { appearance: none; -webkit-appearance: none; padding-right: 28px; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%23888888' stroke-width='1.5'/></svg>"); background-repeat: no-repeat; background-position: right 10px center; }
 input[type="number"].inp::-webkit-inner-spin-button { opacity: .5; }
+/* Safari on iPhone draws its own date box unless told not to; keep it the same height and left-aligned as the other inputs */
+input[type="date"].inp { -webkit-appearance: none; appearance: none; display: flex; align-items: center; min-height: 34px; }
+input[type="date"].inp::-webkit-date-and-time-value { text-align: left; min-height: 1.2em; }
+.tag.rep { color: var(--accent-text); border-color: var(--accent); }
 input[type="date"].inp { min-width: 0; }
 .inp-money { position: relative; }
-.inp-money span { position: absolute; left: 10px; top: 0; height: 34px; line-height: 34px; color: var(--fg-3); font-family: var(--mono); pointer-events: none; }
+.inp-money span { position: absolute; left: 10px; top: 0; bottom: 0; display: flex; align-items: center; color: var(--fg-3); font-family: var(--mono); pointer-events: none; }
 .inp-money .inp { padding-left: 24px; }
 
 /* ---------- forms in modals ---------- */
@@ -303,14 +307,17 @@ input[type="date"].inp { min-width: 0; }
   .seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
   .seg::-webkit-scrollbar { display: none; }
   .seg button { padding: 7px 10px; }
+  /* the History filter has too many choices for one row: on phones it wraps into chips instead of running off the edge */
+  .panel .panel-head .seg.wrap { flex: 1 0 100%; flex-wrap: wrap; gap: 6px; border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; overflow: visible; padding: 0; }
+  .panel .panel-head .seg.wrap button { flex: 0 0 auto; border: 1px solid var(--line-2) !important; border-radius: 3px; padding: 6px 10px; }
   .group-head, .acct-row, .list li, .mini-goal, .bucket, .income-row, .kv, .data-row, .rrow { padding-left: 14px; padding-right: 14px; }
   .acct-row { padding-top: 10px; padding-bottom: 10px; }
-  .rrow .what { flex-basis: 90px; }
+  .rrow .what { flex-basis: 40px; }
+  .rrow .amt { min-width: 0; }
   .rrow .acts { flex: 1 0 100%; justify-content: flex-end; }
   .btn { height: 38px; }
   .btn-sm { height: 34px; padding: 0 14px; font-size: 13px; }
   .inp { height: 42px; font-size: 16px; }
-  .inp-money span { height: 42px; line-height: 42px; }
   .income-row { flex-wrap: wrap; }
   .income-row .inp-money { width: 100%; }
   .tbl th, .tbl td { padding-left: 12px; padding-right: 12px; }
@@ -700,7 +707,7 @@ input[type="date"].inp { min-width: 0; }
 [data-theme="tycoon"] .meter.done .token { background-image: url(art/tycoon-coin.png); }
 [data-theme="tycoon"] .page-head h1::before { content: ""; display: inline-block; width: 40px; height: 40px; margin: -8px 8px -8px 0; vertical-align: middle; background: center / contain no-repeat; }
 [data-theme="tycoon"] [data-view="upcoming"] .page-head h1::before { background-image: url(art/tycoon-dice.png); }
-[data-theme="tycoon"] [data-view="bills"] .page-head h1::before, [data-theme="tycoon"] [data-view="accounts"] .page-head h1::before { background-image: url(art/tycoon-cash.png); }
+[data-theme="tycoon"] [data-view="accounts"] .page-head h1::before { background-image: url(art/tycoon-cash.png); }
 [data-theme="tycoon"] [data-view="goals"] .page-head h1::before { background-image: url(art/tycoon-shield.png); }
 [data-theme="tycoon"] [data-view="plan"] .page-head h1::before, [data-theme="tycoon"] [data-view="history"] .page-head h1::before { background-image: url(art/tycoon-coin.png); }
 .look .emblem { width: 40px; height: 40px; object-fit: contain; flex: none; }
@@ -815,7 +822,7 @@ input[type="date"].inp { min-width: 0; }
 [data-theme="heist"] .stars i.on { opacity: 1; filter: drop-shadow(0 0 6px rgba(255,255,255,.5)); }
 [data-theme="heist"] .page-head h1::before { content: ""; display: inline-block; width: 38px; height: 38px; margin: -8px 10px -8px 0; vertical-align: middle; background: center / contain no-repeat; }
 [data-theme="heist"] [data-view="goals"] .page-head h1::before { background-image: url(art/heist-bag.png); }
-[data-theme="heist"] [data-view="accounts"] .page-head h1::before, [data-theme="heist"] [data-view="bills"] .page-head h1::before { background-image: url(art/heist-cash.png); }
+[data-theme="heist"] [data-view="accounts"] .page-head h1::before { background-image: url(art/heist-cash.png); }
 [data-theme="heist"] [data-view="upcoming"] .page-head h1::before { background-image: url(art/heist-star.png); }
 [data-theme="heist"] [data-view="plan"] .page-head h1::before, [data-theme="heist"] [data-view="history"] .page-head h1::before { background-image: url(art/heist-shield.png); }
 [data-theme="heist"] .goal.done .row:first-child::after, [data-theme="heist"] .meter.done ~ .stars::after { content: ""; display: inline-block; width: 26px; height: 26px; margin-left: 8px; background: url(art/heist-bag.png) center / contain no-repeat; vertical-align: middle; }
@@ -837,7 +844,7 @@ input[type="date"].inp { min-width: 0; }
 [data-theme="casino"] .meter .token { display: block; position: absolute; top: 50%; width: 36px; height: 36px; margin: -18px 0 0 -18px; background: url(art/casino-chip.png) center / contain no-repeat; filter: drop-shadow(0 3px 3px rgba(0,0,0,.5)); transition: left .6s cubic-bezier(.2,.7,.2,1); }
 [data-theme="casino"] .meter.done .token { background-image: url(art/casino-gem.png); }
 [data-theme="casino"] .page-head h1::before { content: ""; display: inline-block; width: 40px; height: 40px; margin: -8px 10px -8px 0; vertical-align: middle; background: center / contain no-repeat; }
-[data-theme="casino"] [data-view="accounts"] .page-head h1::before, [data-theme="casino"] [data-view="bills"] .page-head h1::before { background-image: url(art/casino-chips.png); }
+[data-theme="casino"] [data-view="accounts"] .page-head h1::before { background-image: url(art/casino-chips.png); }
 [data-theme="casino"] [data-view="goals"] .page-head h1::before { background-image: url(art/casino-gem.png); }
 [data-theme="casino"] [data-view="upcoming"] .page-head h1::before { background-image: url(art/casino-cards.png); }
 [data-theme="casino"] [data-view="plan"] .page-head h1::before, [data-theme="casino"] [data-view="history"] .page-head h1::before { background-image: url(art/casino-chip.png); }
@@ -852,7 +859,7 @@ input[type="date"].inp { min-width: 0; }
 [data-theme="arcade"] .meter .token::before { content: none; }
 [data-theme="arcade"] .meter.done .token { background-image: url(art/arcade-crown.png); }
 [data-theme="arcade"] .page-head h1::before { content: ""; display: inline-block; width: 38px; height: 38px; margin: -8px 10px -8px 0; vertical-align: middle; background: center / contain no-repeat; }
-[data-theme="arcade"] [data-view="accounts"] .page-head h1::before, [data-theme="arcade"] [data-view="bills"] .page-head h1::before { background-image: url(art/arcade-coin.png); }
+[data-theme="arcade"] [data-view="accounts"] .page-head h1::before { background-image: url(art/arcade-coin.png); }
 [data-theme="arcade"] [data-view="goals"] .page-head h1::before { background-image: url(art/arcade-crown.png); }
 [data-theme="arcade"] [data-view="upcoming"] .page-head h1::before { background-image: url(art/arcade-gem.png); }
 [data-theme="arcade"] [data-view="plan"] .page-head h1::before, [data-theme="arcade"] [data-view="history"] .page-head h1::before { background-image: url(art/arcade-badge.png); }
@@ -866,7 +873,7 @@ input[type="date"].inp { min-width: 0; }
 [data-theme="comic"] .meter .token::before { content: none; }
 [data-theme="comic"] .meter.done .token { background-image: url(art/comic-trophy.png); }
 [data-theme="comic"] .page-head h1::before { content: ""; display: inline-block; width: 38px; height: 38px; margin: -8px 10px -8px 0; vertical-align: middle; background: center / contain no-repeat; }
-[data-theme="comic"] [data-view="accounts"] .page-head h1::before, [data-theme="comic"] [data-view="bills"] .page-head h1::before { background-image: url(art/comic-cash.png); }
+[data-theme="comic"] [data-view="accounts"] .page-head h1::before { background-image: url(art/comic-cash.png); }
 [data-theme="comic"] [data-view="goals"] .page-head h1::before { background-image: url(art/comic-trophy.png); }
 [data-theme="comic"] [data-view="upcoming"] .page-head h1::before { background-image: url(art/comic-star.png); }
 [data-theme="comic"] [data-view="plan"] .page-head h1::before, [data-theme="comic"] [data-view="history"] .page-head h1::before { background-image: url(art/comic-burst.png); }
@@ -880,7 +887,7 @@ input[type="date"].inp { min-width: 0; }
 [data-theme="passbook"] .meter .token::before { content: none; }
 [data-theme="passbook"] .meter.done .token { background-image: url(art/passbook-nib.png); }
 [data-theme="passbook"] .page-head h1::before { content: ""; display: inline-block; width: 38px; height: 38px; margin: -8px 10px -8px 0; vertical-align: middle; background: center / contain no-repeat; }
-[data-theme="passbook"] [data-view="accounts"] .page-head h1::before, [data-theme="passbook"] [data-view="bills"] .page-head h1::before { background-image: url(art/passbook-notes.png); }
+[data-theme="passbook"] [data-view="accounts"] .page-head h1::before { background-image: url(art/passbook-notes.png); }
 [data-theme="passbook"] [data-view="goals"] .page-head h1::before { background-image: url(art/passbook-nib.png); }
 [data-theme="passbook"] [data-view="upcoming"] .page-head h1::before { background-image: url(art/passbook-coin.png); }
 [data-theme="passbook"] [data-view="plan"] .page-head h1::before, [data-theme="passbook"] [data-view="history"] .page-head h1::before { background-image: url(art/passbook-book.png); }

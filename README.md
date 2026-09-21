@@ -44,8 +44,7 @@ So use **Backup** now and then. It downloads a single JSON file. **Restore** loa
 - **Accounts** – every place money lives or is owed. Update a balance whenever it changes; a snapshot is taken automatically.
 - **Plan** – buckets with a target share of your assets (e.g. 10% cash, 25% emergency fund, 65% invested). Shows what to move to get on target, and how to split new money each month after bills.
 - **Goals** – money earmarked for something specific, optionally with a date and the account it sits in.
-- **Bills** – recurring payments. Paying one pulls from the source account and, if it's a card or loan payment, pays the debt down too.
-- **Upcoming** – one-time money on the horizon: a purchase you are planning, a refund you are waiting on. Nothing touches a balance until you mark it received or paid.
+- **Upcoming** – everything on the horizon in one list. Repeating items (rent, the car payment, a subscription: every week, 2 weeks, month or year) come back on their day after you pay them; one-time money in or out sits there until you mark it received or paid. Paying pulls from the source account and, if it's a card or loan payment, pays the debt down too.
 - **History** – every change, newest first, plus the daily net worth snapshots and the backup/restore/reset controls.
 
 ## Files
