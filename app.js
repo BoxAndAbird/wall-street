@@ -37,13 +37,34 @@ const VIEWS = [
   { id: 'upcoming', label: 'Upcoming' },
   { id: 'history',  label: 'History' },
 ];
-/* looks: dark ledger, paper, and board (a friendly property-game table). The button shows the next one. */
-const THEMES = ['dark', 'board', 'light'];
-const THEME_NEXT = { dark: 'Board look', board: 'Paper look', light: 'Dark look' };
-const THEME_COLOR = { dark: '#0e0e12', light: '#f2f1f6', board: '#0f5f3f' };
-/* a few labels get game flavour in the board look; everything else keeps its wording */
-const WORDS = { board: { 'Main goal': 'Next property', 'Coming up': 'Chance & rent', 'Bills left': 'Rent due', 'Where it sits': 'Your deeds', 'Funded': 'Owned', 'Plan drift': 'Rebalance' } };
+/* looks. Each is a stylesheet block keyed on data-theme, plus a few flavoured labels; functions never change. */
+const THEME_INFO = {
+  dark:     { name: 'Dark ledger',  desc: 'The original. Quiet, purple, monospace.',                 color: '#0e0e12', sw: ['#0e0e12', '#a88cf6', '#63c78d'] },
+  board:    { name: 'Board',        desc: 'Deed cards on green felt. Pass GO, collect.',             color: '#0f5f3f', sw: ['#0f5f3f', '#fbf6ea', '#d7263d'] },
+  arcade:   { name: 'Arcade',       desc: 'Neon HUD. Brackets, glow, XP bars, your level.',         color: '#07080f', sw: ['#07080f', '#b388ff', '#7cf2ff'] },
+  pixel:    { name: 'Pixel Quest',  desc: '8-bit RPG. Chunky borders, gold coins, HP bars.',        color: '#1b1f3a', sw: ['#1b1f3a', '#ffcc33', '#f6f3e8'] },
+  comic:    { name: 'Comic Pop',    desc: 'Halftone, thick outlines, big shadows. Ka-ching.',       color: '#fff3c4', sw: ['#fff3c4', '#111111', '#ff3b6b'] },
+  casino:   { name: 'Casino Night', desc: 'Black and gold, poker-chip tags, velvet glow.',          color: '#0b0b0d', sw: ['#0b0b0d', '#d4af37', '#3fd68c'] },
+  passbook: { name: 'Passbook',     desc: 'Kraft paper, navy ink, typewriter numbers, stamps.',     color: '#e9dfcc', sw: ['#e9dfcc', '#1e2a44', '#b3342e'] },
+  light:    { name: 'Paper',        desc: 'The original, in daylight.',                             color: '#f2f1f6', sw: ['#f2f1f6', '#6b4fd8', '#1f8a4c'] },
+};
+const THEMES = Object.keys(THEME_INFO);
+const WORDS = {
+  board:    { 'Main goal': 'Next property', 'Coming up': 'Chance & rent', 'Bills left': 'Rent due', 'Where it sits': 'Your deeds', 'Funded': 'Owned', 'Plan drift': 'Rebalance' },
+  arcade:   { 'Net worth': 'Bankroll', 'Main goal': 'Main quest', 'Coming up': 'Incoming', 'Bills left': 'Debts due', 'Where it sits': 'Inventory', 'Funded': 'Unlocked', 'Plan drift': 'Loadout' },
+  pixel:    { 'Net worth': 'Gold', 'Main goal': 'Quest', 'Coming up': 'Next turn', 'Bills left': 'Upkeep', 'Where it sits': 'Inventory', 'Funded': 'Complete', 'Plan drift': 'Party balance' },
+  comic:    { 'Main goal': 'The big one', 'Coming up': 'Up next!', 'Where it sits': 'The stash', 'Funded': 'Done!', 'Plan drift': 'Shuffle' },
+  casino:   { 'Net worth': 'Chips', 'Main goal': 'Jackpot', 'Coming up': 'On the table', 'Bills left': 'House take', 'Where it sits': 'The vault', 'Funded': 'Cashed out', 'Plan drift': 'Reshuffle' },
+  passbook: { 'Net worth': 'Balance', 'Main goal': 'Savings goal', 'Coming up': 'Due soon', 'Where it sits': 'Accounts', 'Funded': 'Complete', 'Plan drift': 'Allocation' },
+};
 const word = s => (WORDS[S.settings.theme] || {})[s] || s;
+/* a level for the game looks: one per $2,500 of net worth */
+const level = n => Math.floor(Math.max(0, n) / 2500) + 1;
+function looksHTML() {
+  return `<div class="mform"><h3>Pick a look</h3><p class="muted small intro">Same app, same numbers. Only the outfit changes.</p>
+    <div class="looks">${THEMES.map(t => { const i = THEME_INFO[t]; return `<button type="button" class="look${t === S.settings.theme ? ' on' : ''}" data-action="set-theme" data-theme="${t}"><span class="sw">${i.sw.map(c => `<i style="background:${c}"></i>`).join('')}</span><span class="grow"><b>${esc(i.name)}</b><span class="muted small">${esc(i.desc)}</span></span></button>`; }).join('')}</div>
+    <div class="mactions"><span class="grow"></span><button type="button" class="btn btn-primary" data-close>Done</button></div></div>`;
+}
 const ICONS = {
   overview: '<path d="M3 10.5 10 4l7 6.5V17h-5v-4H8v4H3z"/>',
   accounts: '<path d="M3 8l7-4 7 4H3zM5 8v6M9 8v6M13 8v6M17 8v6M3 17h14"/>',
@@ -395,9 +416,9 @@ const VIEW_FN = { overview: vOverview, accounts: vAccounts, plan: vPlan, goals: 
 
 function render() {
   document.documentElement.dataset.theme = S.settings.theme;
-  $('#themeBtn').textContent = THEME_NEXT[S.settings.theme] || 'Dark look';
+  $('#themeBtn').textContent = 'Looks';
   const tc = $('meta[name="theme-color"]');
-  if (tc) tc.content = THEME_COLOR[S.settings.theme] || THEME_COLOR.dark;
+  if (tc) tc.content = (THEME_INFO[S.settings.theme] || THEME_INFO.dark).color;
   renderNav();
   $('#main').innerHTML = (VIEW_FN[view] || vOverview)();
   afterRender();
@@ -441,7 +462,7 @@ function vOverview() {
   <header class="hero">
     <div>
       <div class="hero-top">
-        <span class="label">Net worth${after ? ` <span class="muted">${DOT} after withdrawals</span>` : ''}</span>
+        <span class="label">${word('Net worth')}${after ? ` <span class="muted">${DOT} after withdrawals</span>` : ''} <span class="lvl">LVL ${level(NW)}</span></span>
         <div class="seg"><button class="${after ? '' : 'on'}" data-action="view" data-view="now">As is</button><button class="${after ? 'on' : ''}" data-action="view" data-view="after">After withdrawals</button></div>
       </div>
       <div class="hero-num num" data-count="${NW}">${money(NW, { cents: false })}</div>
@@ -990,7 +1011,12 @@ const upcomingFields = (u, kind) => {
    actions (data-action="...")
    ====================================================================== */
 const actions = {
-  'toggle-theme'() { S.settings.theme = THEMES[(THEMES.indexOf(S.settings.theme) + 1) % THEMES.length]; save(); render(); },
+  'toggle-theme'() { openModal(looksHTML()); },
+  'set-theme'(el) {
+    if (!THEMES.includes(el.dataset.theme)) return;
+    S.settings.theme = el.dataset.theme; save(); render();
+    openModal(looksHTML()); /* keep the picker open so looks can be compared */
+  },
   view(el) { S.settings.view = el.dataset.view === 'after' ? 'after' : 'now'; save(); render(); },
   range(el) { chartRange = el.dataset.range; render(); },
   'hist-filter'(el) { histFilter = el.dataset.k; render(); },
@@ -1375,6 +1401,8 @@ function init() {
     if (el) { S.settings.income = Math.max(0, num(el.value)); save(); render(); }
   });
   $('#modalRoot').addEventListener('click', e => {
+    const act = e.target.closest('[data-action="set-theme"]');
+    if (act) { actions['set-theme'](act); return; }
     if (e.target.classList.contains('modal-bg') || e.target.closest('[data-close]')) closeModal();
     else if (e.target.closest('[data-ok]')) closeModal({ ok: true });
     else if (e.target.closest('[data-danger]')) closeModal({ ok: false, danger: true });
