@@ -609,39 +609,41 @@ function countUp(el, to) {
 /* ---------- overview ---------- */
 function vOverview() {
   if (!S.accounts.length) return vWelcome();
-  const T = totals();
+  const T = totals(), d = netDelta(30);
   const up = upNext(30).slice(0, 7), W = withdrawals(), after = viewAfter(), NW = netShown(), mg = mainGoal();
   const parts = [W.bills ? `<span class="num neg">${MINUS}${money(W.bills, { cents: false })}</span> bills` : '', W.out ? `<span class="num neg">${MINUS}${money(W.out, { cents: false })}</span> planned` : ''].filter(Boolean).join(' ' + DOT + ' ');
   const P = planRows();
   const drift = P.rows.filter(r => Math.abs(r.diff) > 1).sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff)).slice(0, 4);
-  const pts = rangeSeries(chartRange), first = pts[0].v, lastV = pts[pts.length - 1].v;
+  const pts = rangeSeries(chartRange), firstV = pts[0].v, lastV = pts[pts.length - 1].v;
+  const deltaHtml = d
+    ? `<span class="${d.amt >= 0 ? 'pos' : 'neg'} num">${d.amt >= 0 ? UP : DOWN} ${money(Math.abs(d.amt), { cents: false })} ${DOT} ${pctStr(Math.abs(d.pct), 1)}</span> <span class="muted">since ${fmtDate(d.since, { month: 'short', day: 'numeric' })}</span>`
+    : `<span class="muted">No movement recorded yet. Update a balance on another day and this fills in.</span>`;
   return `
-  <header class="hero${lastV >= first ? ' up' : ' down'}">
-    <div class="hero-l">
+  <header class="hero">
+    <div>
       <div class="hero-top">
         <span class="label">${word('Net worth')}${after ? ` <span class="muted">${DOT} after withdrawals</span>` : ''} <span class="lvl">${word('LVL')} ${level(NW)}</span></span>
         <div class="seg"><button class="${after ? '' : 'on'}" data-action="view" data-view="now">As is</button><button class="${after ? 'on' : ''}" data-action="view" data-view="after">After withdrawals</button></div>
       </div>
-      <div class="hero-num num" id="heroNum" data-count="${NW}">${money(NW, { cents: false })}</div>
-      <div class="hero-delta" id="heroDelta">${deltaHTML(first, lastV, rangeLabel(chartRange))}</div>
+      <div class="hero-num num" data-count="${NW}">${money(NW, { cents: false })}</div>
+      <div class="hero-delta">${deltaHtml}</div>
+      ${W.total > 0
+        ? `<div class="hero-note small muted">${after ? `<span class="num">${money(T.N, { cents: false })}</span> before withdrawals ${DOT} ` : 'Still to come out this month: '}${parts}</div>`
+        : `<div class="hero-note small muted">Nothing left to come out this month.</div>`}
+      ${W.inn ? `<div class="hero-note small muted">Expected in: <span class="num pos">+${money(W.inn, { cents: false })}</span>, not counted until it lands</div>` : ''}
     </div>
     <div class="hero-r">
       <div class="stat"><div class="label">Assets</div><div class="num pos">${money(T.A, { cents: false })}</div></div>
       <div class="stat"><div class="label">Debt</div><div class="num${T.L ? ' neg' : ''}">${T.L ? MINUS : ''}${money(T.L, { cents: false })}</div></div>
       <div class="stat"><div class="label">${word('Bills left')}</div><div class="num${W.bills ? ' neg' : ''}">${W.bills ? MINUS : ''}${money(W.bills, { cents: false })}</div></div>
     </div>
-    <div class="hero-chart">
-      <div class="chart-wrap" id="chart"></div>
-      <div class="ranges"><span class="live"><i></i>LIVE</span>${RANGES.map(r => `<button class="${chartRange === r[0] ? 'on' : ''}" data-action="range" data-range="${r[0]}">${r[1]}</button>`).join('')}</div>
-    </div>
-    <div class="hero-notes">
-      ${W.total > 0
-        ? `<div class="hero-note small muted">${after ? `<span class="num">${money(T.N, { cents: false })}</span> before withdrawals ${DOT} ` : 'Still to come out this month: '}${parts}</div>`
-        : `<div class="hero-note small muted">Nothing left to come out this month.</div>`}
-      ${W.inn ? `<div class="hero-note small muted">Expected in: <span class="num pos">+${money(W.inn, { cents: false })}</span>, not counted until it lands</div>` : ''}
-    </div>
   </header>
   ${mg ? mainGoalPanel(mg) : ''}
+  <section class="panel chart-panel${lastV >= firstV ? ' up' : ' down'}">
+    <div class="panel-head"><span class="label">Net worth over time${after ? ` ${DOT} after withdrawals` : ''}</span><span class="small">${deltaHTML(firstV, lastV, rangeLabel(chartRange))}</span></div>
+    <div class="chart-wrap" id="chart"></div>
+    <div class="ranges"><span class="live"><i></i>LIVE</span>${RANGES.map(r => `<button class="${chartRange === r[0] ? 'on' : ''}" data-action="range" data-range="${r[0]}">${r[1]}</button>`).join('')}</div>
+  </section>
   <div class="grid-2">
     <section class="panel">
       <div class="panel-head"><span class="label">${word('Where it sits')}</span><a class="link" href="#accounts">All accounts</a></div>
@@ -958,7 +960,7 @@ function vHistory() {
 function drawChart() {
   const wrap = $('#chart');
   if (!wrap) return;
-  const W = Math.max(280, wrap.clientWidth) || 800;
+  const W = Math.max(280, wrap.clientWidth - 24) || 800;
   wrap.innerHTML = chartSVG(W);
   bindChartScrub(wrap, W);
 }
@@ -979,31 +981,27 @@ function chartSVG(W) {
     <circle cx="${last[0]}" cy="${last[1]}" r="4" class="dot"/>
     <line class="cross" x1="0" x2="0" y1="${PT - 6}" y2="${H - PB + 6}" style="display:none"/>
     <circle class="hover-dot" r="5" style="display:none"/>
-  </svg>`;
+  </svg><div class="chart-tip" style="display:none"></div>`;
 }
-/* drag a finger (or the mouse) across the line: the big number and the change line read that moment */
+/* drag a finger (or the mouse) across the line to read a moment */
 function bindChartScrub(wrap, W) {
   const svg = wrap.querySelector('svg');
   if (!svg) return;
-  const pts = JSON.parse(svg.dataset.pts), cross = svg.querySelector('.cross'), hd = svg.querySelector('.hover-dot');
-  const numEl = $('#heroNum'), deltaEl = $('#heroDelta');
-  const restNum = numEl ? numEl.textContent : '', restDelta = deltaEl ? deltaEl.innerHTML : '', first = pts[0][3];
-  const intraday = chartRange === '1d' || chartRange === '1w';
+  const pts = JSON.parse(svg.dataset.pts), cross = svg.querySelector('.cross'), hd = svg.querySelector('.hover-dot'), tip = wrap.querySelector('.chart-tip');
+  const first = pts[0][3], intraday = chartRange === '1d' || chartRange === '1w';
   const show = clientX => {
     const r = svg.getBoundingClientRect(), x = (clientX - r.left) / r.width * W;
     let best = pts[0];
     for (const p of pts) if (Math.abs(p[0] - x) < Math.abs(best[0] - x)) best = p;
     cross.setAttribute('x1', best[0]); cross.setAttribute('x2', best[0]); cross.style.display = '';
     hd.setAttribute('cx', best[0]); hd.setAttribute('cy', best[1]); hd.style.display = '';
-    const when = new Date(best[2]), label = fmtDate(when, { month: 'short', day: 'numeric' }) + (intraday ? ' ' + fmtTime(when) : '');
-    if (numEl) numEl.textContent = money(best[3], { cents: false });
-    if (deltaEl) deltaEl.innerHTML = deltaHTML(first, best[3], label);
+    const when = new Date(best[2]), amt = best[3] - first;
+    tip.innerHTML = `<span class="muted">${fmtDate(when, { month: 'short', day: 'numeric' })}${intraday ? ' ' + fmtTime(when) : ''}</span><b class="num">${money(best[3], { cents: false })}</b><span class="num ${amt > 0 ? 'pos' : amt < 0 ? 'neg' : 'muted'}">${amt > 0 ? '+' : amt < 0 ? MINUS : ''}${money(Math.abs(amt), { cents: false })}</span>`;
+    tip.style.display = '';
+    const px = best[0] / W * r.width;
+    tip.style.left = Math.min(r.width - tip.offsetWidth, Math.max(0, px - tip.offsetWidth / 2)) + 12 + 'px';
   };
-  const hide = () => {
-    cross.style.display = 'none'; hd.style.display = 'none';
-    if (numEl) numEl.textContent = restNum;
-    if (deltaEl) deltaEl.innerHTML = restDelta;
-  };
+  const hide = () => { cross.style.display = 'none'; hd.style.display = 'none'; tip.style.display = 'none'; };
   let down = false;
   svg.addEventListener('pointerdown', e => { down = true; show(e.clientX); });
   svg.addEventListener('pointermove', e => { if (down || e.pointerType === 'mouse') show(e.clientX); });
