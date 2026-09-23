@@ -47,9 +47,18 @@ So use **Backup** now and then. It downloads a single JSON file. **Restore** loa
 - **Upcoming** – everything on the horizon in one list. Repeating items (rent, the car payment, a subscription: every week, 2 weeks, month or year) come back on their day after you pay them; one-time money in or out sits there until you mark it received or paid. Paying pulls from the source account and, if it's a card or loan payment, pays the debt down too.
 - **History** – every change, newest first, plus the daily net worth snapshots and the backup/restore/reset controls.
 
+### On a computer (861px and wider)
+
+The phone layout is untouched. On a wider window the app switches to a desktop layout with a game layer on top:
+
+- **Layout** – a rail with your cash and what's due, sticky page bars, summary strips, sortable tables with a detail panel beside them, and an Overview dashboard.
+- **Keys** – 1–6 pages, J/K move through rows, Enter does the row's main action, E edits, N adds, T transfers, L opens the looks, ? lists shortcuts, Esc closes.
+- **Game layer** – levels and an XP bar, records on the chart, Quick Wins, streaks for paying on time, trophies, monthly season stars, goals as buildings in your city, debts as bosses whose HP drops as you pay them down, PAID stamps, a welcome-back score, and sounds with a mute button. Every dollar shown is the real number, and rewards only come from good habits. Game memory lives in `ws.game*` / `ws.sound` keys in this browser, never in the synced ledger.
+
 ## Files
 
 - `index.html` – the shell
+- `desktop.css` – the desktop layout and game layer, all inside `@media (min-width: 861px)`
 - `app.css` – all styling (colors are CSS variables at the top; there is a light "paper" theme too)
 - `app.js` – all logic, plain JavaScript
 - `manifest.json`, `icon.svg`, `icon-*.png` – home-screen name and icon

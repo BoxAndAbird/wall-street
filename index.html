@@ -15,17 +15,20 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Chakra+Petch:wght@500;600;700&family=Lilita+One&family=Baloo+2:wght@700;800&family=Bangers&family=Bebas+Neue&family=Anton&family=Oswald:wght@500;600&family=Fraunces:ital,wght@0,600;1,600&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=29">
+<link rel="stylesheet" href="app.css?v=30">
+<link rel="stylesheet" href="desktop.css?v=30">
 </head>
 <body>
 <div class="app">
   <aside class="side">
     <div class="brand"><span class="brand-mark"></span><span class="brand-name">WALL STREET</span></div>
     <nav class="nav" id="nav"></nav>
+    <div class="desk-only dk-ticker" id="dkTicker"></div>
     <div class="side-foot">
       <button class="link" data-action="toggle-theme" id="themeBtn">Light mode</button>
       <button class="link" data-action="export">Backup</button>
       <button class="link" data-action="import">Restore</button>
+      <button class="link desk-only dk-keys-link" data-action="dk-keys">Shortcuts <kbd class="dk-kbd">?</kbd></button>
       <button class="link help" data-action="help" aria-label="Help: put this app on your home screen">?</button>
       <div class="side-status" id="sideStatus"></div>
     </div>
@@ -35,6 +38,6 @@
 <div class="modal-root" id="modalRoot"></div>
 <div class="toast-root" id="toastRoot"></div>
 <input type="file" id="importFile" accept="application/json,.json" hidden>
-<script src="app.js?v=29"></script>
+<script src="app.js?v=30"></script>
 </body>
 </html>
